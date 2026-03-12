@@ -35,3 +35,73 @@ pergunta(febre, 'Qual o nivel de febre?').
 pergunta(dificuldade_respiratoria, 'Qual o nivel de dificuldade respiratoria?').
 pergunta(dor_toracica, 'Qual o nivel de dor toracica?').
 pergunta(limitacao_respiratoria, 'Qual o nivel de limitacao respiratoria?').
+
+
+
+% ---------------------------------
+% REGRAS DE EMERGENCIA
+% ---------------------------------
+
+regra(emergencia) :-
+    resposta(dificuldade_respiratoria, grave).
+
+regra(emergencia) :-
+    resposta(dificuldade_respiratoria, moderada),
+    resposta(dor_toracica, forte).
+
+% ---------------------------------
+% REGRAS DE URGENCIA
+% ---------------------------------
+
+regra(urgencia) :-
+    resposta(febre, alta),
+    resposta(dificuldade_respiratoria, moderada).
+
+regra(urgencia) :-
+    resposta(pieira, sim),
+    resposta(dificuldade_respiratoria, moderada).
+
+% ---------------------------------
+% REGRAS DE CONSULTA MEDICA
+% ---------------------------------
+
+regra(consulta_medica) :-
+    resposta(tosse, sim),
+    resposta(agravamento, sim),
+    resposta(dificuldade_respiratoria, nenhuma),
+    resposta(dor_toracica, nenhuma).
+
+regra(consulta_medica) :-
+    resposta(tosse, sim),
+    resposta(febre, moderada),
+    resposta(duracao_prolongada, sim).
+
+% ---------------------------------
+% REGRAS DE AUTOCUIDADOS
+% ---------------------------------
+
+regra(autocuidados) :-
+    resposta(congestao_nasal, sim),
+    resposta(dor_garganta, sim),
+    resposta(febre, nenhuma),
+    resposta(dificuldade_respiratoria, nenhuma),
+    resposta(agravamento, nao).
+
+regra(autocuidados) :-
+    resposta(tosse, sim),
+    resposta(febre, nenhuma),
+    resposta(dificuldade_respiratoria, nenhuma),
+    resposta(dor_toracica, nenhuma),
+    resposta(agravamento, nao),
+    resposta(duracao_prolongada, nao).
+
+
+
+% ---------------------------------
+% PRIORIDADE DOS ENCAMINHAMENTOS
+% ---------------------------------
+
+prioridade(emergencia, 4).
+prioridade(urgencia, 3).
+prioridade(consulta_medica, 2).
+prioridade(autocuidados, 1).
