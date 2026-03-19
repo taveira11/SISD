@@ -84,8 +84,8 @@ ordem_pergunta(2, dificuldade_respiratoria).
 ordem_pergunta(3, dor_toracica).
 ordem_pergunta(4, limitacao_respiratoria).
 ordem_pergunta(5, febre).
-ordem_pergunta(6, pieira).
-ordem_pergunta(7, tosse).
+ordem_pergunta(6, tosse).
+ordem_pergunta(7, pieira).
 ordem_pergunta(8, agravamento).
 ordem_pergunta(9, duracao_prolongada).
 ordem_pergunta(10, doenca_respiratoria_previa).
@@ -105,33 +105,38 @@ proxima_pergunta(Pergunta) :-
 resumo_caso :-
     write('--- RESUMO DO CASO ---'), nl,
     listar_respostas,
+    nl,
     total_respostas(Total),
     write('Total de respostas: '), write(Total), nl,
     (questionario_completo ->
         write('Estado: questionario completo.'), nl
     ;
         write('Estado: questionario incompleto.'), nl
+    ),
+    (ha_inconsistencias ->
+        write('Foram detetadas inconsistencias nas respostas.'), nl
+    ;
+        write('Nao foram detetadas inconsistencias.'), nl
     ).
 
 % ---------------------------------
 % VALIDACAO DE CONSISTENCIA
 % ---------------------------------
 
-inconsistencia('Dor toracica forte com ausencia total de limitacao respiratoria: verificar coerencia das respostas.') :-
-    resposta(dor_toracica, forte),
-    resposta(limitacao_respiratoria, nenhuma),
-    resposta(dificuldade_respiratoria, nenhuma).
-
 inconsistencia('Dificuldade respiratoria grave com limitacao respiratoria nenhuma: verificar respostas.') :-
     resposta(dificuldade_respiratoria, grave),
     resposta(limitacao_respiratoria, nenhuma).
 
-inconsistencia('Febre alta com resposta de sintomas muito ligeiros: confirmar quadro clinico.') :-
-    resposta(febre, alta),
+inconsistencia('Dificuldade respiratoria nenhuma com limitacao respiratoria significativa: verificar respostas.') :-
     resposta(dificuldade_respiratoria, nenhuma),
-    resposta(dor_toracica, nenhuma),
-    resposta(limitacao_respiratoria, nenhuma),
-    resposta(agravamento, nao).
+    resposta(limitacao_respiratoria, significativa).
+
+inconsistencia('Ausencia de tosse, pieira, dor de garganta e congestao nasal com agravamento assinalado: confirmar coerencia das respostas.') :-
+    resposta(tosse, nao),
+    resposta(pieira, nao),
+    resposta(dor_garganta, nao),
+    resposta(congestao_nasal, nao),
+    resposta(agravamento, sim).
 
 ha_inconsistencias :-
     inconsistencia_existe(_).
@@ -192,6 +197,54 @@ caso_exemplo(3) :-
     guardar_resposta(duracao_prolongada, nao),
     guardar_resposta(agravamento, sim),
     guardar_resposta(pieira, sim),
+    guardar_resposta(dor_garganta, nao),
+    guardar_resposta(congestao_nasal, nao),
+    guardar_resposta(doenca_respiratoria_previa, nao),
+    guardar_resposta(imunossupressao, nao).
+
+caso_exemplo(4) :-
+    limpar_respostas,
+    guardar_resposta(idade, 30),
+    guardar_resposta(tosse, nao),
+    guardar_resposta(febre, nenhuma),
+    guardar_resposta(dificuldade_respiratoria, nenhuma),
+    guardar_resposta(dor_toracica, forte),
+    guardar_resposta(limitacao_respiratoria, nenhuma),
+    guardar_resposta(duracao_prolongada, nao),
+    guardar_resposta(agravamento, nao),
+    guardar_resposta(pieira, nao),
+    guardar_resposta(dor_garganta, nao),
+    guardar_resposta(congestao_nasal, nao),
+    guardar_resposta(doenca_respiratoria_previa, nao),
+    guardar_resposta(imunossupressao, nao).
+
+caso_exemplo(5) :-
+    limpar_respostas,
+    guardar_resposta(idade, 19),
+    guardar_resposta(tosse, nao),
+    guardar_resposta(febre, nenhuma),
+    guardar_resposta(dificuldade_respiratoria, nenhuma),
+    guardar_resposta(dor_toracica, nenhuma),
+    guardar_resposta(limitacao_respiratoria, nenhuma),
+    guardar_resposta(duracao_prolongada, nao),
+    guardar_resposta(agravamento, nao),
+    guardar_resposta(pieira, nao),
+    guardar_resposta(dor_garganta, sim),
+    guardar_resposta(congestao_nasal, sim),
+    guardar_resposta(doenca_respiratoria_previa, nao),
+    guardar_resposta(imunossupressao, nao).
+
+caso_exemplo(6) :-
+    limpar_respostas,
+    guardar_resposta(idade, 68),
+    guardar_resposta(tosse, sim),
+    guardar_resposta(febre, moderada),
+    guardar_resposta(dificuldade_respiratoria, nenhuma),
+    guardar_resposta(dor_toracica, nenhuma),
+    guardar_resposta(limitacao_respiratoria, nenhuma),
+    guardar_resposta(duracao_prolongada, sim),
+    guardar_resposta(agravamento, sim),
+    guardar_resposta(pieira, nao),
     guardar_resposta(dor_garganta, nao),
     guardar_resposta(congestao_nasal, nao),
     guardar_resposta(doenca_respiratoria_previa, nao),

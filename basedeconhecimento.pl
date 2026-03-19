@@ -1,4 +1,4 @@
-% ---------------------------------
+ ---------------------------------
 % BASE DE CONHECIMENTO
 % Triagem de Sintomas Respiratorios
 % ---------------------------------
@@ -146,7 +146,8 @@ caso_ligeiro_vias_superiores :-
     resposta(dor_garganta, sim),
     resposta(febre, nenhuma),
     resposta(dificuldade_respiratoria, nenhuma),
-    resposta(agravamento, nao).
+    resposta(agravamento, nao),
+    resposta(duracao_prolongada, nao).
 
 tosse_ligeira_isolada :-
     resposta(tosse, sim),
@@ -161,11 +162,7 @@ tosse_ligeira_isolada :-
 % ---------------------------------
 regra(emergencia) :-
     sinal_alarme.
-
-regra(emergencia) :-
-    resposta(dor_toracica, forte),
-    resposta(dificuldade_respiratoria, moderada).
-
+    
 % ---------------------------------
 % REGRAS DE URGENCIA
 % ---------------------------------
@@ -190,6 +187,10 @@ regra(urgencia) :-
     fator_risco,
     resposta(dificuldade_respiratoria, ligeira),
     resposta(agravamento, sim).
+
+regra(urgencia) :-
+    compromisso_respiratorio,
+    caso_agravado.
 
 % ---------------------------------
 % REGRAS DE CONSULTA MEDICA
@@ -220,7 +221,23 @@ regra(consulta_medica) :-
 
 regra(consulta_medica) :-
     fator_risco,
-    resposta(tosse, sim).
+    resposta(tosse, sim),
+    caso_persistente.
+
+regra(consulta_medica) :-
+    fator_risco,
+    resposta(tosse, sim),
+    caso_agravado.
+
+regra(consulta_medica) :-
+    fator_risco,
+    resposta(tosse, sim),
+    resposta(febre, moderada).
+
+regra(consulta_medica) :-
+    fator_risco,
+    resposta(tosse, sim),
+    resposta(febre, alta).
 
 regra(consulta_medica) :-
     fator_risco,
@@ -228,6 +245,16 @@ regra(consulta_medica) :-
 
 regra(consulta_medica) :-
     resposta(pieira, sim),
+    resposta(dificuldade_respiratoria, nenhuma).
+
+regra(consulta_medica) :-
+    caso_persistente,
+    caso_agravado,
+    resposta(dificuldade_respiratoria, nenhuma).
+
+regra(consulta_medica) :-
+    resposta(febre, moderada),
+    caso_persistente,
     resposta(dificuldade_respiratoria, nenhuma).
 
 % ---------------------------------
@@ -238,4 +265,4 @@ regra(autocuidados) :-
     caso_ligeiro_vias_superiores.
 
 regra(autocuidados) :-
-    tosse_ligeira_isolada.
+    tosse_ligeira_isolada.%
