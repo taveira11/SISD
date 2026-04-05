@@ -1,4 +1,4 @@
- ---------------------------------
+%---------------------------------
 % BASE DE CONHECIMENTO
 % Triagem de Sintomas Respiratorios
 % ---------------------------------
@@ -89,6 +89,9 @@ fator_risco :-
 fator_risco :-
     resposta(imunossupressao, sim).
 
+fator_risco :-
+    idade_risco.
+
 idade_risco :-
     resposta(idade, Idade),
     Idade =< 5.
@@ -97,8 +100,6 @@ idade_risco :-
     resposta(idade, Idade),
     Idade >= 65.
 
-fator_risco :-
-    idade_risco.
 
 % ---------------------------------
 % CONCEITOS CLINICOS INTERMEDIOS
