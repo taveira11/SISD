@@ -1,11 +1,13 @@
-%---------------------------------
+% ---------------------------------
 % BASE DE CONHECIMENTO
 % Triagem de Sintomas Respiratorios
 % ---------------------------------
 
-% ---------------------------------
-% SINTOMAS BINARIOS
-% ---------------------------------
+% =========================================================
+% 1. TIPOS DE DADOS
+% =========================================================
+
+% Sintomas / condicoes binarias
 sintoma_binario(tosse).
 sintoma_binario(pieira).
 sintoma_binario(dor_garganta).
@@ -15,31 +17,27 @@ sintoma_binario(duracao_prolongada).
 sintoma_binario(doenca_respiratoria_previa).
 sintoma_binario(imunossupressao).
 
-% ---------------------------------
-% DADOS NUMERICOS
-% ---------------------------------
+% Dados numericos
 dado_numerico(idade).
 
-% ---------------------------------
-% SINTOMAS COM NIVEIS
-% ---------------------------------
+% Sintomas com niveis
 sintoma_nivel(febre, [nenhuma, moderada, alta]).
 sintoma_nivel(dificuldade_respiratoria, [nenhuma, ligeira, moderada, grave]).
 sintoma_nivel(dor_toracica, [nenhuma, ligeira, moderada, forte]).
 sintoma_nivel(limitacao_respiratoria, [nenhuma, alguma, significativa]).
 
-% ---------------------------------
-% ENCAMINHAMENTOS POSSIVEIS
-% ---------------------------------
+% Encaminhamentos possiveis
 encaminhamento(emergencia).
 encaminhamento(urgencia).
 encaminhamento(consulta_medica).
 encaminhamento(autocuidados).
 
-% ---------------------------------
-% PERGUNTAS DO SISTEMA
-% ---------------------------------
+% =========================================================
+% 2. PERGUNTAS DO SISTEMA
+% =========================================================
+
 pergunta(idade, 'Qual e a sua idade?').
+
 pergunta(tosse, 'Tem tosse?').
 pergunta(pieira, 'Tem pieira ou chiadeira ao respirar?').
 pergunta(dor_garganta, 'Tem dor de garganta?').
@@ -54,9 +52,10 @@ pergunta(dificuldade_respiratoria, 'Qual o nivel de dificuldade respiratoria?').
 pergunta(dor_toracica, 'Qual o nivel de dor toracica?').
 pergunta(limitacao_respiratoria, 'Qual o nivel de limitacao respiratoria?').
 
-% ---------------------------------
-% VALIDACAO DE VALORES
-% ---------------------------------
+% =========================================================
+% 3. VALIDACAO DE VALORES
+% =========================================================
+
 valor_valido(Sintoma, sim) :-
     sintoma_binario(Sintoma).
 
@@ -72,25 +71,18 @@ valor_valido(idade, Valor) :-
     Valor >= 0,
     Valor =< 120.
 
-% ---------------------------------
-% PRIORIDADE DOS ENCAMINHAMENTOS
-% ---------------------------------
+% =========================================================
+% 4. PRIORIDADE DOS ENCAMINHAMENTOS
+% =========================================================
+
 prioridade(emergencia, 4).
 prioridade(urgencia, 3).
 prioridade(consulta_medica, 2).
 prioridade(autocuidados, 1).
 
-% ---------------------------------
-% FATORES DE RISCO
-% ---------------------------------
-fator_risco :-
-    resposta(doenca_respiratoria_previa, sim).
-
-fator_risco :-
-    resposta(imunossupressao, sim).
-
-fator_risco :-
-    idade_risco.
+% =========================================================
+% 5. FATORES DE RISCO
+% =========================================================
 
 idade_risco :-
     resposta(idade, Idade),
@@ -100,41 +92,83 @@ idade_risco :-
     resposta(idade, Idade),
     Idade >= 65.
 
+fator_risco :-
+    idade_risco.
 
-% ---------------------------------
-% CONCEITOS CLINICOS INTERMEDIOS
-% ---------------------------------
+fator_risco :-
+    resposta(doenca_respiratoria_previa, sim).
+
+fator_risco :-
+    resposta(imunossupressao, sim).
+
+% =========================================================
+% 6. CONCEITOS CLINICOS INTERMEDIOS
+% =========================================================
+
+% -------------------------
+% 6.1 Sinais de alarme
+% -------------------------
+
 sinal_alarme :-
     resposta(dificuldade_respiratoria, grave).
 
 sinal_alarme :-
-    resposta(dificuldade_respiratoria, moderada),
-    resposta(limitacao_respiratoria, significativa).
-
-sinal_alarme :-
-    resposta(dificuldade_respiratoria, moderada),
-    resposta(dor_toracica, forte).
-
-sinal_alarme :-
-    resposta(dor_toracica, forte).
-
-compromisso_respiratorio :-
+    resposta(limitacao_respiratoria, significativa),
     resposta(dificuldade_respiratoria, moderada).
 
-compromisso_respiratorio :-
-    resposta(pieira, sim),
-    resposta(dificuldade_respiratoria, ligeira),
-    resposta(limitacao_respiratoria, alguma).
+sinal_alarme :-
+    resposta(dor_toracica, forte).
 
-compromisso_respiratorio :-
+sinal_alarme :-
+    resposta(dificuldade_respiratoria, moderada),
+    resposta(dor_toracica, moderada),
+    resposta(agravamento, sim).
+
+% -------------------------
+% 6.2 Compromisso respiratorio
+% -------------------------
+
+compromisso_respiratorio_importante :-
+    resposta(dificuldade_respiratoria, moderada).
+
+compromisso_respiratorio_importante :-
     resposta(limitacao_respiratoria, significativa).
 
-quadro_infecioso_relevante :-
+compromisso_respiratorio_ligeiro :-
+    resposta(dificuldade_respiratoria, ligeira).
+
+compromisso_respiratorio_ligeiro :-
+    resposta(limitacao_respiratoria, alguma).
+
+compromisso_respiratorio_ligeiro :-
+    resposta(pieira, sim),
+    resposta(dificuldade_respiratoria, nenhuma).
+
+sem_compromisso_respiratorio :-
+    resposta(dificuldade_respiratoria, nenhuma),
+    resposta(limitacao_respiratoria, nenhuma).
+
+% -------------------------
+% 6.3 Gravidade infecciosa
+% -------------------------
+
+febre_relevante :-
     resposta(febre, alta).
+
+febre_relevante :-
+    resposta(febre, moderada),
+    resposta(duracao_prolongada, sim).
+
+quadro_infecioso_relevante :-
+    febre_relevante.
 
 quadro_infecioso_relevante :-
     resposta(febre, moderada),
-    resposta(duracao_prolongada, sim).
+    resposta(agravamento, sim).
+
+% -------------------------
+% 6.4 Evolucao temporal
+% -------------------------
 
 caso_persistente :-
     resposta(duracao_prolongada, sim).
@@ -142,128 +176,181 @@ caso_persistente :-
 caso_agravado :-
     resposta(agravamento, sim).
 
+% -------------------------
+% 6.5 Dor toracica
+% -------------------------
+
+dor_toracica_relevante :-
+    resposta(dor_toracica, moderada).
+
+dor_toracica_relevante :-
+    resposta(dor_toracica, forte).
+
+% -------------------------
+% 6.6 Casos ligeiros
+% -------------------------
+
 caso_ligeiro_vias_superiores :-
-    resposta(congestao_nasal, sim),
     resposta(dor_garganta, sim),
+    resposta(congestao_nasal, sim),
     resposta(febre, nenhuma),
-    resposta(dificuldade_respiratoria, nenhuma),
+    sem_compromisso_respiratorio,
+    resposta(dor_toracica, nenhuma),
     resposta(agravamento, nao),
     resposta(duracao_prolongada, nao).
 
 tosse_ligeira_isolada :-
     resposta(tosse, sim),
     resposta(febre, nenhuma),
-    resposta(dificuldade_respiratoria, nenhuma),
+    sem_compromisso_respiratorio,
     resposta(dor_toracica, nenhuma),
     resposta(agravamento, nao),
-    resposta(duracao_prolongada, nao).
+    resposta(duracao_prolongada, nao),
+    resposta(pieira, nao).
 
-% ---------------------------------
-% REGRAS DE EMERGENCIA
-% ---------------------------------
-regra(emergencia) :-
+caso_ligeiro_sem_risco :-
+    caso_ligeiro_vias_superiores,
+    \+ fator_risco.
+
+caso_ligeiro_sem_risco :-
+    tosse_ligeira_isolada,
+    \+ fator_risco.
+
+% =========================================================
+% 7. REGRAS DE ENCAMINHAMENTO COM MOTIVO
+% =========================================================
+
+% A ideia aqui e ter regras explicaveis:
+% regra_com_motivo(Encaminhamento, Motivo).
+% Mais tarde a inferencia pode reutilizar estes motivos.
+
+% -------------------------
+% 7.1 Emergencia
+% -------------------------
+
+regra_com_motivo(emergencia,
+    'Presenca de sinal de alarme respiratorio ou toracico.') :-
     sinal_alarme.
-    
-% ---------------------------------
-% REGRAS DE URGENCIA
-% ---------------------------------
 
-regra(urgencia) :-
+% -------------------------
+% 7.2 Urgencia
+% -------------------------
+
+regra_com_motivo(urgencia,
+    'Febre relevante associada a compromisso respiratorio importante.') :-
     quadro_infecioso_relevante,
-    compromisso_respiratorio.
+    compromisso_respiratorio_importante.
 
-regra(urgencia) :-
+regra_com_motivo(urgencia,
+    'Pieira associada a dificuldade respiratoria moderada.') :-
     resposta(pieira, sim),
     resposta(dificuldade_respiratoria, moderada).
 
-regra(urgencia) :-
-    resposta(dor_toracica, moderada),
-    compromisso_respiratorio.
+regra_com_motivo(urgencia,
+    'Dor toracica relevante associada a compromisso respiratorio.') :-
+    dor_toracica_relevante,
+    (compromisso_respiratorio_importante ; compromisso_respiratorio_ligeiro).
 
-regra(urgencia) :-
+regra_com_motivo(urgencia,
+    'Doente de risco com febre alta.') :-
     fator_risco,
     resposta(febre, alta).
 
-regra(urgencia) :-
+regra_com_motivo(urgencia,
+    'Doente de risco com agravamento e dificuldade respiratoria.') :-
     fator_risco,
-    resposta(dificuldade_respiratoria, ligeira),
-    resposta(agravamento, sim).
+    caso_agravado,
+    (compromisso_respiratorio_importante ; compromisso_respiratorio_ligeiro).
 
-regra(urgencia) :-
-    compromisso_respiratorio,
-    caso_agravado.
+regra_com_motivo(urgencia,
+    'Compromisso respiratorio com agravamento clinico.') :-
+    caso_agravado,
+    compromisso_respiratorio_importante.
 
-% ---------------------------------
-% REGRAS DE CONSULTA MEDICA
-% ---------------------------------
+% -------------------------
+% 7.3 Consulta medica
+% -------------------------
 
-regra(consulta_medica) :-
+regra_com_motivo(consulta_medica,
+    'Tosse com agravamento, sem criterios de urgencia.') :-
     resposta(tosse, sim),
     caso_agravado,
-    resposta(dificuldade_respiratoria, nenhuma),
+    sem_compromisso_respiratorio,
     resposta(dor_toracica, nenhuma).
 
-regra(consulta_medica) :-
+regra_com_motivo(consulta_medica,
+    'Tosse com febre moderada e duracao prolongada.') :-
     resposta(tosse, sim),
     resposta(febre, moderada),
-    caso_persistente.
+    caso_persistente,
+    sem_compromisso_respiratorio.
 
-regra(consulta_medica) :-
+regra_com_motivo(consulta_medica,
+    'Febre alta sem dificuldade respiratoria.') :-
     resposta(febre, alta),
-    resposta(dificuldade_respiratoria, nenhuma).
+    sem_compromisso_respiratorio.
 
-regra(consulta_medica) :-
+regra_com_motivo(consulta_medica,
+    'Dor toracica ligeira sem compromisso respiratorio.') :-
     resposta(dor_toracica, ligeira),
-    resposta(dificuldade_respiratoria, nenhuma).
+    sem_compromisso_respiratorio.
 
-regra(consulta_medica) :-
+regra_com_motivo(consulta_medica,
+    'Limitacao respiratoria ligeira sem criterios de urgencia.') :-
     resposta(limitacao_respiratoria, alguma),
     resposta(dificuldade_respiratoria, ligeira).
 
-regra(consulta_medica) :-
+regra_com_motivo(consulta_medica,
+    'Doente de risco com tosse persistente ou em agravamento.') :-
     fator_risco,
     resposta(tosse, sim),
-    caso_persistente.
+    (caso_persistente ; caso_agravado).
 
-regra(consulta_medica) :-
+regra_com_motivo(consulta_medica,
+    'Doente de risco com tosse e febre.') :-
     fator_risco,
     resposta(tosse, sim),
-    caso_agravado.
+    (resposta(febre, moderada) ; resposta(febre, alta)).
 
-regra(consulta_medica) :-
-    fator_risco,
-    resposta(tosse, sim),
-    resposta(febre, moderada).
-
-regra(consulta_medica) :-
-    fator_risco,
-    resposta(tosse, sim),
-    resposta(febre, alta).
-
-regra(consulta_medica) :-
+regra_com_motivo(consulta_medica,
+    'Doente de risco com duracao prolongada dos sintomas.') :-
     fator_risco,
     caso_persistente.
 
-regra(consulta_medica) :-
+regra_com_motivo(consulta_medica,
+    'Pieira sem dificuldade respiratoria marcada.') :-
     resposta(pieira, sim),
     resposta(dificuldade_respiratoria, nenhuma).
 
-regra(consulta_medica) :-
+regra_com_motivo(consulta_medica,
+    'Sintomas persistentes com agravamento, sem sinais de alarme.') :-
     caso_persistente,
     caso_agravado,
-    resposta(dificuldade_respiratoria, nenhuma).
+    sem_compromisso_respiratorio.
 
-regra(consulta_medica) :-
+regra_com_motivo(consulta_medica,
+    'Febre moderada persistente, sem compromisso respiratorio.') :-
     resposta(febre, moderada),
     caso_persistente,
-    resposta(dificuldade_respiratoria, nenhuma).
+    sem_compromisso_respiratorio.
 
-% ---------------------------------
-% REGRAS DE AUTOCUIDADOS
-% ---------------------------------
+% -------------------------
+% 7.4 Autocuidados
+% -------------------------
 
-regra(autocuidados) :-
+regra_com_motivo(autocuidados,
+    'Quadro ligeiro de vias respiratorias superiores, sem fatores de risco.') :-
+    caso_ligeiro_sem_risco,
     caso_ligeiro_vias_superiores.
 
-regra(autocuidados) :-
-    tosse_ligeira_isolada.%
+regra_com_motivo(autocuidados,
+    'Tosse ligeira isolada, sem fatores de risco nem sinais de gravidade.') :-
+    caso_ligeiro_sem_risco,
+    tosse_ligeira_isolada.
+
+% =========================================================
+% 8. REGRA FINAL (COMPATIBILIDADE COM O RESTO DO PROJETO)
+% =========================================================
+
+regra(Encaminhamento) :-
+    regra_com_motivo(Encaminhamento, _).

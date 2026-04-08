@@ -5,9 +5,9 @@
 
 :- dynamic resposta/2.
 
-% ---------------------------------
-% LIMPEZA DE RESPOSTAS
-% ---------------------------------
+% =========================================================
+% 1. LIMPEZA DE RESPOSTAS
+% =========================================================
 
 limpar_respostas :-
     retractall(resposta(_, _)).
@@ -15,22 +15,26 @@ limpar_respostas :-
 remover_resposta(Pergunta) :-
     retractall(resposta(Pergunta, _)).
 
-% ---------------------------------
-% GUARDAR E ATUALIZAR RESPOSTAS
-% ---------------------------------
+% =========================================================
+% 2. GUARDAR E VALIDAR RESPOSTAS
+% =========================================================
 
 guardar_resposta(Pergunta, Valor) :-
     pergunta_existe(Pergunta),
-    valor_valido(Pergunta, Valor),
-    retractall(resposta(Pergunta, _)),
-    assertz(resposta(Pergunta, Valor)).
+    (   valor_valido(Pergunta, Valor)
+    ->  retractall(resposta(Pergunta, _)),
+        assertz(resposta(Pergunta, Valor))
+    ;   write('Valor invalido para '), write(Pergunta), write('.'), nl,
+        write('Resposta ignorada.'), nl,
+        fail
+    ).
 
 atualizar_resposta(Pergunta, NovoValor) :-
     guardar_resposta(Pergunta, NovoValor).
 
-% ---------------------------------
-% CONSULTA DE ESTADO
-% ---------------------------------
+% =========================================================
+% 3. CONSULTA DE ESTADO
+% =========================================================
 
 respondeu(Pergunta) :-
     resposta(Pergunta, _).
@@ -42,9 +46,9 @@ nao_respondeu(Pergunta) :-
 obter_resposta(Pergunta, Valor) :-
     resposta(Pergunta, Valor).
 
-% ---------------------------------
-% LISTAGEM DE RESPOSTAS
-% ---------------------------------
+% =========================================================
+% 4. LISTAGEM DE RESPOSTAS
+% =========================================================
 
 listar_respostas :-
     forall(
@@ -53,31 +57,31 @@ listar_respostas :-
     ).
 
 total_respostas(Total) :-
-    findall(Pergunta, resposta(Pergunta, _), Lista),
+    findall(P, resposta(P, _), Lista),
     length(Lista, Total).
 
-% ---------------------------------
-% PERGUNTAS EXISTENTES
-% ---------------------------------
+% =========================================================
+% 5. PERGUNTAS
+% =========================================================
 
 pergunta_existe(Pergunta) :-
     pergunta(Pergunta, _).
 
 todas_perguntas(Lista) :-
-    findall(Pergunta, pergunta(Pergunta, _), Lista).
+    findall(P, pergunta(P, _), Lista).
 
 perguntas_respondidas(Lista) :-
-    findall(Pergunta, resposta(Pergunta, _), Lista).
+    findall(P, resposta(P, _), Lista).
 
 perguntas_em_falta(Lista) :-
-    findall(Pergunta, nao_respondeu(Pergunta), Lista).
+    findall(P, nao_respondeu(P), Lista).
 
 questionario_completo :-
     \+ nao_respondeu(_).
 
-% ---------------------------------
-% ORDEM DAS PERGUNTAS
-% ---------------------------------
+% =========================================================
+% 6. ORDEM DAS PERGUNTAS
+% =========================================================
 
 ordem_pergunta(1, idade).
 ordem_pergunta(2, dificuldade_respiratoria).
@@ -98,9 +102,9 @@ proxima_pergunta(Pergunta) :-
     nao_respondeu(Pergunta),
     !.
 
-% ---------------------------------
-% RESUMO DO CASO
-% ---------------------------------
+% =========================================================
+% 7. RESUMO DO CASO
+% =========================================================
 
 resumo_caso :-
     write('--- RESUMO DO CASO ---'), nl,
@@ -119,24 +123,38 @@ resumo_caso :-
         write('Nao foram detetadas inconsistencias.'), nl
     ).
 
-% ---------------------------------
-% VALIDACAO DE CONSISTENCIA
-% ---------------------------------
+% =========================================================
+% 8. VALIDACAO DE CONSISTENCIA (MELHORADA)
+% =========================================================
 
-inconsistencia('Dificuldade respiratoria grave com limitacao respiratoria nenhuma: verificar respostas.') :-
+% Respiracao incoerente
+inconsistencia('Dificuldade respiratoria grave com limitacao nenhuma.') :-
     resposta(dificuldade_respiratoria, grave),
     resposta(limitacao_respiratoria, nenhuma).
 
-inconsistencia('Dificuldade respiratoria nenhuma com limitacao respiratoria significativa: verificar respostas.') :-
+inconsistencia('Sem dificuldade respiratoria mas com limitacao significativa.') :-
     resposta(dificuldade_respiratoria, nenhuma),
     resposta(limitacao_respiratoria, significativa).
 
-inconsistencia('Ausencia de tosse, pieira, dor de garganta e congestao nasal com agravamento assinalado: confirmar coerencia das respostas.') :-
+% Febre incoerente
+inconsistencia('Febre alta sem qualquer agravamento ou duracao prolongada.') :-
+    resposta(febre, alta),
+    resposta(agravamento, nao),
+    resposta(duracao_prolongada, nao).
+
+% Agravamento sem sintomas
+inconsistencia('Agravamento sem sintomas associados.') :-
+    resposta(agravamento, sim),
     resposta(tosse, nao),
     resposta(pieira, nao),
     resposta(dor_garganta, nao),
-    resposta(congestao_nasal, nao),
-    resposta(agravamento, sim).
+    resposta(congestao_nasal, nao).
+
+% Dor toracica incoerente
+inconsistencia('Dor toracica forte sem qualquer compromisso respiratorio.') :-
+    resposta(dor_toracica, forte),
+    resposta(dificuldade_respiratoria, nenhuma),
+    resposta(limitacao_respiratoria, nenhuma).
 
 ha_inconsistencias :-
     inconsistencia_existe(_).
@@ -150,9 +168,21 @@ listar_inconsistencias :-
         (write('- '), write(Mensagem), nl)
     ).
 
-% ---------------------------------
-% CASOS DE TESTE
-% ---------------------------------
+% =========================================================
+% 9. EXPLICACAO (PREPARACAO)
+% =========================================================
+
+% Este predicado vai ser usado depois na inferencia
+explicacao_respostas(Lista) :-
+    findall(
+        Pergunta=Valor,
+        resposta(Pergunta, Valor),
+        Lista
+    ).
+
+% =========================================================
+% 10. CASOS DE TESTE
+% =========================================================
 
 caso_exemplo(1) :-
     limpar_respostas,
@@ -164,86 +194,6 @@ caso_exemplo(1) :-
     guardar_resposta(limitacao_respiratoria, nenhuma),
     guardar_resposta(duracao_prolongada, sim),
     guardar_resposta(agravamento, nao),
-    guardar_resposta(pieira, nao),
-    guardar_resposta(dor_garganta, nao),
-    guardar_resposta(congestao_nasal, nao),
-    guardar_resposta(doenca_respiratoria_previa, nao),
-    guardar_resposta(imunossupressao, nao).
-
-caso_exemplo(2) :-
-    limpar_respostas,
-    guardar_resposta(idade, 70),
-    guardar_resposta(tosse, sim),
-    guardar_resposta(febre, alta),
-    guardar_resposta(dificuldade_respiratoria, ligeira),
-    guardar_resposta(dor_toracica, nenhuma),
-    guardar_resposta(limitacao_respiratoria, alguma),
-    guardar_resposta(duracao_prolongada, nao),
-    guardar_resposta(agravamento, sim),
-    guardar_resposta(pieira, sim),
-    guardar_resposta(dor_garganta, nao),
-    guardar_resposta(congestao_nasal, nao),
-    guardar_resposta(doenca_respiratoria_previa, sim),
-    guardar_resposta(imunossupressao, nao).
-
-caso_exemplo(3) :-
-    limpar_respostas,
-    guardar_resposta(idade, 45),
-    guardar_resposta(tosse, sim),
-    guardar_resposta(febre, alta),
-    guardar_resposta(dificuldade_respiratoria, grave),
-    guardar_resposta(dor_toracica, forte),
-    guardar_resposta(limitacao_respiratoria, significativa),
-    guardar_resposta(duracao_prolongada, nao),
-    guardar_resposta(agravamento, sim),
-    guardar_resposta(pieira, sim),
-    guardar_resposta(dor_garganta, nao),
-    guardar_resposta(congestao_nasal, nao),
-    guardar_resposta(doenca_respiratoria_previa, nao),
-    guardar_resposta(imunossupressao, nao).
-
-caso_exemplo(4) :-
-    limpar_respostas,
-    guardar_resposta(idade, 30),
-    guardar_resposta(tosse, nao),
-    guardar_resposta(febre, nenhuma),
-    guardar_resposta(dificuldade_respiratoria, nenhuma),
-    guardar_resposta(dor_toracica, forte),
-    guardar_resposta(limitacao_respiratoria, nenhuma),
-    guardar_resposta(duracao_prolongada, nao),
-    guardar_resposta(agravamento, nao),
-    guardar_resposta(pieira, nao),
-    guardar_resposta(dor_garganta, nao),
-    guardar_resposta(congestao_nasal, nao),
-    guardar_resposta(doenca_respiratoria_previa, nao),
-    guardar_resposta(imunossupressao, nao).
-
-caso_exemplo(5) :-
-    limpar_respostas,
-    guardar_resposta(idade, 19),
-    guardar_resposta(tosse, nao),
-    guardar_resposta(febre, nenhuma),
-    guardar_resposta(dificuldade_respiratoria, nenhuma),
-    guardar_resposta(dor_toracica, nenhuma),
-    guardar_resposta(limitacao_respiratoria, nenhuma),
-    guardar_resposta(duracao_prolongada, nao),
-    guardar_resposta(agravamento, nao),
-    guardar_resposta(pieira, nao),
-    guardar_resposta(dor_garganta, sim),
-    guardar_resposta(congestao_nasal, sim),
-    guardar_resposta(doenca_respiratoria_previa, nao),
-    guardar_resposta(imunossupressao, nao).
-
-caso_exemplo(6) :-
-    limpar_respostas,
-    guardar_resposta(idade, 68),
-    guardar_resposta(tosse, sim),
-    guardar_resposta(febre, moderada),
-    guardar_resposta(dificuldade_respiratoria, nenhuma),
-    guardar_resposta(dor_toracica, nenhuma),
-    guardar_resposta(limitacao_respiratoria, nenhuma),
-    guardar_resposta(duracao_prolongada, sim),
-    guardar_resposta(agravamento, sim),
     guardar_resposta(pieira, nao),
     guardar_resposta(dor_garganta, nao),
     guardar_resposta(congestao_nasal, nao),
