@@ -98,7 +98,34 @@ mostrar_resultado_interface :-
     write('===================================='), nl,
     resumo_caso,
     nl,
-    mostrar_resultado_final.
+    apresentar_resultado_final.
+
+apresentar_resultado_final :-
+    nl,
+    write('===================================='), nl,
+    write(' RESULTADO FINAL DA TRIAGEM'), nl,
+    write('===================================='), nl,
+    resultado_triagem(Encaminhamento, Motivos, Outros),
+    write('Encaminhamento recomendado: '), write(Encaminhamento), nl, nl,
+    write('Motivos principais:'), nl,
+    mostrar_motivos_interface(Motivos), nl,
+    write('Outros encaminhamentos considerados:'), nl,
+    mostrar_outros_encaminhamentos(Outros).
+
+mostrar_motivos_interface([]) :-
+    write('- Sem explicacao disponivel.'), nl.
+
+mostrar_motivos_interface([H|T]) :-
+    write('- '), write(H), nl,
+    mostrar_motivos_interface(T).
+
+mostrar_outros_encaminhamentos([]) :-
+    write('- Nenhum encaminhamento adicional.'), nl.
+
+mostrar_outros_encaminhamentos([Enc-Mot|T]) :-
+    write('- '), write(Enc), write(': '), write(Mot), nl,
+    mostrar_outros_encaminhamentos(T).
+
 
 % =========================================================
 % 6. INCONSISTENCIAS
