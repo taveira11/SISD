@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sistema de Triagem Respiratória</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page-shell">
+    <header class="topbar">
+      <div class="brand-wrap">
+        <div class="brand-icon">+</div>
+        <div>
+          <p class="eyebrow">Projeto Académico · Técnicas de Inteligência Artificial</p>
+          <h1>Sistema de Triagem Respiratória</h1>
+          <p class="subtitle">
+            Interface web para apoio à decisão clínica na triagem de sintomas respiratórios.
+          </p>
+        </div>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <section class="hero-card">
+        <div>
+          <span class="section-tag">Triagem Inicial</span>
+          <h2>Avaliação clínica inicial do doente</h2>
+          <p>
+            Preencha os dados abaixo para obter um encaminhamento automático com base
+            nas regras de inferência definidas no sistema.
+          </p>
+        </div>
+      </section>
+
+      <form class="form-card" method="POST" action="/triagem">
+        <section class="form-section">
+          <div class="section-header">
+            <h3>Dados do doente</h3>
+            <p>Informação base e fatores de risco.</p>
+          </div>
+
+          <div class="form-grid two-cols">
+            <div class="form-group">
+              <label for="idade">Idade</label>
+              <input type="number" id="idade" name="idade" min="0" max="120" required />
+            </div>
+
+            <div class="form-group">
+              <label for="doenca_respiratoria_previa">Doença respiratória prévia</label>
+              <select id="doenca_respiratoria_previa" name="doenca_respiratoria_previa" required>
+                <option value="nao">Não</option>
+                <option value="sim">Sim</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="imunossupressao">Imunossupressão</label>
+              <select id="imunossupressao" name="imunossupressao" required>
+                <option value="nao">Não</option>
+                <option value="sim">Sim</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-section">
+          <div class="section-header">
+            <h3>Sintomas respiratórios</h3>
+            <p>Registo dos principais sinais e sintomas.</p>
+          </div>
+
+          <div class="form-grid two-cols">
+            <div class="form-group">
+              <label for="tosse">Tosse</label>
+              <select id="tosse" name="tosse" required>
+                <option value="nao">Não</option>
+                <option value="sim">Sim</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="pieira">Pieira</label>
+              <select id="pieira" name="pieira" required>
+                <option value="nao">Não</option>
+                <option value="sim">Sim</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="dor_garganta">Dor de garganta</label>
+              <select id="dor_garganta" name="dor_garganta" required>
+                <option value="nao">Não</option>
+                <option value="sim">Sim</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="congestao_nasal">Congestão nasal</label>
+              <select id="congestao_nasal" name="congestao_nasal" required>
+                <option value="nao">Não</option>
+                <option value="sim">Sim</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="agravamento">Agravamento</label>
+              <select id="agravamento" name="agravamento" required>
+                <option value="nao">Não</option>
+                <option value="sim">Sim</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="duracao_prolongada">Duração prolongada</label>
+              <select id="duracao_prolongada" name="duracao_prolongada" required>
+                <option value="nao">Não</option>
+                <option value="sim">Sim</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-section">
+          <div class="section-header">
+            <h3>Gravidade clínica</h3>
+            <p>Avaliação dos níveis de severidade reportados.</p>
+          </div>
+
+          <div class="form-grid two-cols">
+            <div class="form-group">
+              <label for="febre">Febre</label>
+              <select id="febre" name="febre" required>
+                <option value="nenhuma">Nenhuma</option>
+                <option value="moderada">Moderada</option>
+                <option value="alta">Alta</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="dificuldade_respiratoria">Dificuldade respiratória</label>
+              <select id="dificuldade_respiratoria" name="dificuldade_respiratoria" required>
+                <option value="nenhuma">Nenhuma</option>
+                <option value="ligeira">Ligeira</option>
+                <option value="moderada">Moderada</option>
+                <option value="grave">Grave</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="dor_toracica">Dor torácica</label>
+              <select id="dor_toracica" name="dor_toracica" required>
+                <option value="nenhuma">Nenhuma</option>
+                <option value="ligeira">Ligeira</option>
+                <option value="moderada">Moderada</option>
+                <option value="forte">Forte</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="limitacao_respiratoria">Limitação respiratória</label>
+              <select id="limitacao_respiratoria" name="limitacao_respiratoria" required>
+                <option value="nenhuma">Nenhuma</option>
+                <option value="alguma">Alguma</option>
+                <option value="significativa">Significativa</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <div class="form-actions">
+          <button type="submit" class="primary-btn">Avaliar triagem</button>
+        </div>
+      </form>
+    </main>
+  </div>
+</body>
+</html>
