@@ -35,5 +35,5 @@ resultado_triagem(Encaminhamento, Motivos, Outros) :-
     motivos_encaminhamento(Encaminhamento, Motivos),
     obter_encaminhamentos_com_motivo(Outros),
     !.
-
+    
 resultado_triagem(sem_encaminhamento, [], []).
