@@ -354,3 +354,5 @@ regra_com_motivo(autocuidados,
 
 regra(Encaminhamento) :-
     regra_com_motivo(Encaminhamento, _).
+
+
