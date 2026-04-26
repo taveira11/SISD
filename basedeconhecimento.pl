@@ -355,4 +355,67 @@ regra_com_motivo(autocuidados,
 regra(Encaminhamento) :-
     regra_com_motivo(Encaminhamento, _).
 
+% =========================================================
+% 9. SISTEMA DE PONTUACAO CLINICA
+% =========================================================
+
+% -------------------------
+% 9.1 Idade
+% -------------------------
+
+pontuacao_resposta(idade, Idade, 10) :-
+    integer(Idade),
+    (Idade =< 5 ; Idade >= 65), !.
+pontuacao_resposta(idade, _, 0).
+
+% -------------------------
+% 9.2 Sintomas binarios
+% -------------------------
+
+pontuacao_resposta(tosse, sim, 5).
+pontuacao_resposta(tosse, nao, 0).
+
+pontuacao_resposta(pieira, sim, 12).
+pontuacao_resposta(pieira, nao, 0).
+
+pontuacao_resposta(dor_garganta, sim, 3).
+pontuacao_resposta(dor_garganta, nao, 0).
+
+pontuacao_resposta(congestao_nasal, sim, 2).
+pontuacao_resposta(congestao_nasal, nao, 0).
+
+pontuacao_resposta(agravamento, sim, 15).
+pontuacao_resposta(agravamento, nao, 0).
+
+pontuacao_resposta(duracao_prolongada, sim, 10).
+pontuacao_resposta(duracao_prolongada, nao, 0).
+
+pontuacao_resposta(doenca_respiratoria_previa, sim, 10).
+pontuacao_resposta(doenca_respiratoria_previa, nao, 0).
+
+pontuacao_resposta(imunossupressao, sim, 15).
+pontuacao_resposta(imunossupressao, nao, 0).
+
+% -------------------------
+% 9.3 Sintomas por nivel
+% -------------------------
+
+pontuacao_resposta(febre, nenhuma, 0).
+pontuacao_resposta(febre, moderada, 10).
+pontuacao_resposta(febre, alta, 20).
+
+pontuacao_resposta(dificuldade_respiratoria, nenhuma, 0).
+pontuacao_resposta(dificuldade_respiratoria, ligeira, 15).
+pontuacao_resposta(dificuldade_respiratoria, moderada, 30).
+pontuacao_resposta(dificuldade_respiratoria, grave, 45).
+
+pontuacao_resposta(dor_toracica, nenhuma, 0).
+pontuacao_resposta(dor_toracica, ligeira, 8).
+pontuacao_resposta(dor_toracica, moderada, 20).
+pontuacao_resposta(dor_toracica, forte, 35).
+
+pontuacao_resposta(limitacao_respiratoria, nenhuma, 0).
+pontuacao_resposta(limitacao_respiratoria, alguma, 10).
+pontuacao_resposta(limitacao_respiratoria, significativa, 25).
+
 

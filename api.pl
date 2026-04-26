@@ -63,7 +63,9 @@ executar_api(
         DorToracica,
         LimitacaoRespiratoria
     ),
-    resultado_triagem(Encaminhamento, Motivos, Outros),
+    resultado_triagem_com_score(Encaminhamento, Motivos, Outros, Score, Faixa),
     write('RESULTADO='), write(Encaminhamento), nl,
+    write('SCORE='), write(Score), nl,
+    write('FAIXA='), write(Faixa), nl,
     write('MOTIVOS='), write(Motivos), nl,
     write('OUTROS='), write(Outros), nl.

@@ -105,8 +105,10 @@ apresentar_resultado_final :-
     write('===================================='), nl,
     write(' RESULTADO FINAL DA TRIAGEM'), nl,
     write('===================================='), nl,
-    resultado_triagem(Encaminhamento, Motivos, Outros),
-    write('Encaminhamento recomendado: '), write(Encaminhamento), nl, nl,
+    resultado_triagem_com_score(Encaminhamento, Motivos, Outros, Score, Faixa),
+    write('Encaminhamento recomendado: '), write(Encaminhamento), nl,
+    write('Indice de gravidade: '), write(Score), write('%'), nl,
+    write('Faixa de risco por pontuacao: '), write(Faixa), nl, nl,
     write('Motivos principais:'), nl,
     mostrar_motivos_interface(Motivos), nl,
     write('Outros encaminhamentos considerados:'), nl,
@@ -125,7 +127,6 @@ mostrar_outros_encaminhamentos([]) :-
 mostrar_outros_encaminhamentos([Enc-Mot|T]) :-
     write('- '), write(Enc), write(': '), write(Mot), nl,
     mostrar_outros_encaminhamentos(T).
-
 
 % =========================================================
 % 6. INCONSISTENCIAS

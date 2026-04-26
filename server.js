@@ -48,6 +48,82 @@ function classeResultado(resultado) {
   }
 }
 
+function classeFaixa(faixa) {
+  switch (faixa) {
+    case "emergencia":
+      return "metric-card metric-emergencia";
+    case "urgencia":
+      return "metric-card metric-urgencia";
+    case "consulta_medica":
+      return "metric-card metric-consulta";
+    case "autocuidados":
+      return "metric-card metric-autocuidados";
+    default:
+      return "metric-card";
+  }
+}
+
+function valorBarra(score) {
+  const numero = Number(score);
+  if (Number.isNaN(numero)) return 0;
+  return Math.max(0, Math.min(100, numero));
+}
+
+function parseListaProlog(raw) {
+  const texto = String(raw || "").trim();
+
+  if (!texto || texto === "[]") return [];
+
+  const semColchetes = texto.replace(/^\[/, "").replace(/\]$/, "").trim();
+  if (!semColchetes) return [];
+
+  return semColchetes
+    .split(/,(?=(?:[^']*'[^']*')*[^']*$)/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => {
+      const limpo = item.replace(/^'(.*)'$/, "$1");
+      return formatarTexto(limpo);
+    });
+}
+
+function parseParesEncaminhamento(raw) {
+  const texto = String(raw || "").trim();
+
+  if (!texto || texto === "[]") return [];
+
+  const matches = [...texto.matchAll(/([a-z_]+)-'([^']+)'/g)];
+  return matches.map((m) => ({
+    encaminhamento: formatarTexto(m[1]),
+    motivo: m[2].trim(),
+  }));
+}
+
+function renderListaMotivos(motivos) {
+  if (!motivos.length) {
+    return `<li>Sem explicação disponível.</li>`;
+  }
+
+  return motivos.map((motivo) => `<li>${motivo}</li>`).join("");
+}
+
+function renderListaOutros(outros) {
+  if (!outros.length) {
+    return `<li>Nenhum encaminhamento adicional.</li>`;
+  }
+
+  return outros
+    .map(
+      (item) => `
+        <li>
+          <strong>${item.encaminhamento}</strong>
+          <span>${item.motivo}</span>
+        </li>
+      `
+    )
+    .join("");
+}
+
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
@@ -101,16 +177,26 @@ app.post("/triagem", (req, res) => {
       }
 
       const resultadoMatch = stdout.match(/RESULTADO=(.*)/);
+      const scoreMatch = stdout.match(/SCORE=(.*)/);
+      const faixaMatch = stdout.match(/FAIXA=(.*)/);
       const motivosMatch = stdout.match(/MOTIVOS=(.*)/);
       const outrosMatch = stdout.match(/OUTROS=(.*)/);
 
       const resultado = resultadoMatch ? resultadoMatch[1].trim() : "indefinido";
-      const motivos = motivosMatch ? motivosMatch[1].trim() : "[]";
-      const outros = outrosMatch ? outrosMatch[1].trim() : "[]";
+      const score = scoreMatch ? scoreMatch[1].trim() : "0";
+      const faixa = faixaMatch ? faixaMatch[1].trim() : "autocuidados";
+      const motivosRaw = motivosMatch ? motivosMatch[1].trim() : "[]";
+      const outrosRaw = outrosMatch ? outrosMatch[1].trim() : "[]";
 
       const resultadoLabel = formatarTexto(resultado);
+      const faixaLabel = formatarTexto(faixa);
       const badgeClass = classeResultado(resultado);
       const descricao = descricaoResultado(resultado);
+      const metricClass = classeFaixa(faixa);
+      const barra = valorBarra(score);
+
+      const motivos = parseListaProlog(motivosRaw);
+      const outros = parseParesEncaminhamento(outrosRaw);
 
       res.send(`
         <!DOCTYPE html>
@@ -127,10 +213,10 @@ app.post("/triagem", (req, res) => {
               <div class="brand-wrap">
                 <div class="brand-icon">+</div>
                 <div>
-                  <p class="eyebrow">Projeto Académico · Técnicas de Inteligência Artificial</p>
+                  <p class="eyebrow">Projeto Académico · Sistemas Inteligentes de Apoio à Decisão</p>
                   <h1>Sistema de Triagem Respiratória</h1>
                   <p class="subtitle">
-                    Resultado gerado automaticamente pelo sistema de inferência clínica.
+                    Resultado gerado automaticamente com base nas regras de inferência e no índice de gravidade clínica.
                   </p>
                 </div>
               </div>
@@ -148,17 +234,57 @@ app.post("/triagem", (req, res) => {
                   <div class="${badgeClass}">${resultadoLabel}</div>
                 </div>
 
+                <section class="score-panel">
+                  <div class="${metricClass}">
+                    <span class="metric-label">Índice de gravidade</span>
+                    <strong class="metric-value">${score}%</strong>
+                    <span class="metric-subtitle">Pontuação global estimada pelo sistema</span>
+                  </div>
+
+                  <div class="metric-card">
+                    <span class="metric-label">Faixa por pontuação</span>
+                    <strong class="metric-value metric-text">${faixaLabel}</strong>
+                    <span class="metric-subtitle">Classificação complementar baseada no score</span>
+                  </div>
+                </section>
+
+                <section class="score-bar-card">
+                  <div class="score-bar-header">
+                    <h3>Escala de gravidade</h3>
+                    <span>${score}%</span>
+                  </div>
+
+                  <div class="score-bar-track">
+                    <div class="score-bar-fill" style="width: ${barra}%"></div>
+                  </div>
+
+                  <div class="score-scale">
+                    <span>Autocuidados</span>
+                    <span>Consulta médica</span>
+                    <span>Urgência</span>
+                    <span>Emergência</span>
+                  </div>
+                </section>
+
                 <div class="result-grid">
                   <section class="info-card">
                     <h3>Motivos principais</h3>
-                    <pre class="result-box">${motivos}</pre>
+                    <ul class="result-list">
+                      ${renderListaMotivos(motivos)}
+                    </ul>
                   </section>
 
                   <section class="info-card">
                     <h3>Outros encaminhamentos considerados</h3>
-                    <pre class="result-box">${outros}</pre>
+                    <ul class="result-list result-list-secondary">
+                      ${renderListaOutros(outros)}
+                    </ul>
                   </section>
                 </div>
+
+                <p class="method-note">
+                  O encaminhamento final é determinado por regras clínicas. A pontuação apresentada funciona como indicador complementar de gravidade.
+                </p>
 
                 <div class="result-actions">
                   <a class="primary-btn" href="/">Nova triagem</a>
