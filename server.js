@@ -1,5 +1,6 @@
 const express = require("express");
 const path = require("path");
+const fs = require("fs");
 const { execFile } = require("child_process");
 
 const app = express();
@@ -124,6 +125,38 @@ function renderListaOutros(outros) {
     .join("");
 }
 
+function guardarHistoricoTriagem(dados) {
+  const ficheiro = path.join(__dirname, "historico_triagens.csv");
+
+  if (!fs.existsSync(ficheiro)) {
+    const header =
+      "timestamp,idade,tosse,pieira,dor_garganta,congestao_nasal,agravamento,duracao_prolongada,doenca_respiratoria_previa,imunossupressao,febre,dificuldade_respiratoria,dor_toracica,limitacao_respiratoria,encaminhamento,score,faixa\n";
+    fs.writeFileSync(ficheiro, header, "utf8");
+  }
+
+  const linha = [
+    new Date().toISOString(),
+    dados.idade,
+    dados.tosse,
+    dados.pieira,
+    dados.dor_garganta,
+    dados.congestao_nasal,
+    dados.agravamento,
+    dados.duracao_prolongada,
+    dados.doenca_respiratoria_previa,
+    dados.imunossupressao,
+    dados.febre,
+    dados.dificuldade_respiratoria,
+    dados.dor_toracica,
+    dados.limitacao_respiratoria,
+    dados.encaminhamento,
+    dados.score,
+    dados.faixa,
+  ].join(",") + "\n";
+
+  fs.appendFileSync(ficheiro, linha, "utf8");
+}
+
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
@@ -197,6 +230,25 @@ app.post("/triagem", (req, res) => {
 
       const motivos = parseListaProlog(motivosRaw);
       const outros = parseParesEncaminhamento(outrosRaw);
+
+      guardarHistoricoTriagem({
+        idade,
+        tosse,
+        pieira,
+        dor_garganta,
+        congestao_nasal,
+        agravamento,
+        duracao_prolongada,
+        doenca_respiratoria_previa,
+        imunossupressao,
+        febre,
+        dificuldade_respiratoria,
+        dor_toracica,
+        limitacao_respiratoria,
+        encaminhamento: resultado,
+        score,
+        faixa,
+      });
 
       res.send(`
         <!DOCTYPE html>
