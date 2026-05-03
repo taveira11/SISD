@@ -32,9 +32,9 @@ O sistema encaminha cada caso para uma das seguintes classes:
 - `package.json` — dependências Node.js
 
 ### Python
-- `db.py` — geração da base sintética em Python
+- `db.py` — geração da base de dados sintética para a Parte B em Python
 - `triagem_sintetica.csv` — base de dados final para modelação
-- `historico_triagens.csv` — histórico de triagens
+- `historico_triagens.csv` — histórico de triagens originado pela interface
 - `modelagem.ipynb` — notebook com análise e árvores de decisão
 
 ---
