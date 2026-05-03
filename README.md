@@ -21,16 +21,21 @@ O sistema encaminha cada caso para uma das seguintes classes:
 
 ## Estrutura do projeto
 
+### Prolog
 - `basedeconhecimento.pl` — base de conhecimento em Prolog
 - `basededados.pl` — base de dados dinâmica em Prolog
 - `inferencia.pl` — motor de inferência
+
+### Node.js
+- `server.js` — servidor Node.js
+- `public/` — interface web
+- `package.json` — dependências Node.js
+
+### Python
 - `db.py` — geração da base sintética em Python
 - `triagem_sintetica.csv` — base de dados final para modelação
 - `historico_triagens.csv` — histórico de triagens
 - `modelagem.ipynb` — notebook com análise e árvores de decisão
-- `server.js` — servidor Node.js
-- `public/` — interface web
-- `package.json` — dependências Node.js
 
 ---
 
