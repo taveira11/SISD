@@ -58,7 +58,5 @@ A forma principal de testar o sistema é através da interface web.
 
 ### 1. Abrir a pasta do projeto no terminal
 
-### 2. Instalar as dependências
-```bash
-npm install
-['inferencia.pl'].
+### 2. Executar no terminal
+node server.js
