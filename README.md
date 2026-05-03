@@ -1,25 +1,16 @@
-# SISD
+# SISD - Triagem de Sintomas Respiratórios
 
+## Descrição
 
-# SISD - Triagem de Sintomas Respiratórios (SNS24)
+Este projeto implementa um **Sistema Inteligente de Suporte à Decisão (SISD)** para **triagem de sintomas respiratórios**, inspirado na lógica do SNS24.
 
-## Descrição do projeto
+O projeto integra:
 
-Este projeto consiste no desenvolvimento de um **Sistema Inteligente de Suporte à Decisão (SISD)** para a **triagem de sintomas respiratórios**, inspirado no serviço **SNS24**.
+- **Prolog** para representação de conhecimento e inferência
+- **Node.js** para execução da interface web
+- **Python** para geração de base de dados sintética e modelação com árvores de decisão
 
-O sistema foi desenvolvido no contexto da unidade curricular de **Sistemas Inteligentes de Apoio à Decisão / Técnicas de Inteligência Artificial** e combina:
-
-- **representação de conhecimento em Prolog**
-- **inferência baseada em regras**
-- **geração automática de base de dados sintética em Python**
-- **aprendizagem automática com árvores de decisão**
-- **extração de regras para apoio à construção da base de conhecimento**
-
----
-
-## Objetivo
-
-O objetivo principal é apoiar a decisão de encaminhamento clínico de um doente com sintomas respiratórios, classificando o caso num dos seguintes níveis:
+O sistema encaminha cada caso para uma das seguintes classes:
 
 - `autocuidados`
 - `consulta_medica`
@@ -30,87 +21,26 @@ O objetivo principal é apoiar a decisão de encaminhamento clínico de um doent
 
 ## Estrutura do projeto
 
-O projeto encontra-se organizado da seguinte forma:
-
-- `basedeconhecimento.pl`  
-  Base de conhecimento principal em Prolog. Contém:
-  - definição dos tipos de dados
-  - sintomas binários
-  - sintomas por níveis
-  - fatores de risco
-  - conceitos clínicos intermédios
-  - regras de encaminhamento
-
-- `basededados.pl`  
-  Base de dados dinâmica usada pelo sistema para guardar respostas durante a triagem.
-
-- `inferencia.pl`  
-  Motor de inferência em Prolog, responsável por aplicar as regras e obter o encaminhamento final.
-
-- `interface.pl`  
-  Ficheiro de apoio à interação com o utilizador em Prolog.  
-  **Nota:** dependendo da versão final do projeto, este ficheiro pode estar pouco utilizado ou redundante relativamente à interface web / servidor.
-
-- `db.py`  
-  Script em Python responsável por:
-  - gerar casos sintéticos coerentes
-  - aplicar regras de decisão
-  - criar a base de dados final em CSV para modelação
-
-- `triagem_sintetica.csv`  
-  Base de dados sintética final usada na fase de aprendizagem automática.
-
-- `historico_triagens.csv`  
-  Histórico de triagens executadas na interface, caso essa funcionalidade esteja ativa.
-
-- `modelagem.ipynb`  
-  Notebook com a análise exploratória dos dados e treino de modelos de árvores de decisão.
-
-- `server.js`  
-  Servidor usado para ligar a interface web à lógica do sistema, se aplicável.
-
-- `public/`  
-  Ficheiros da interface web.
-
-- `package.json` / `package-lock.json`  
-  Dependências do ambiente Node.js.
-
----
-
-## Lógica do sistema
-
-A triagem é baseada em:
-
-- sintomas binários:
-  - tosse
-  - pieira
-  - dor de garganta
-  - congestão nasal
-  - agravamento
-  - duração prolongada
-  - doença respiratória prévia
-  - imunossupressão
-
-- dado numérico:
-  - idade
-
-- sintomas com níveis:
-  - febre: `nenhuma`, `moderada`, `alta`
-  - dificuldade respiratória: `nenhuma`, `ligeira`, `moderada`, `grave`
-  - dor torácica: `nenhuma`, `ligeira`, `moderada`, `forte`
-  - limitação respiratória: `nenhuma`, `alguma`, `significativa`
-
-Com base nestes dados, o sistema determina o encaminhamento adequado.
+- `basedeconhecimento.pl` — base de conhecimento em Prolog
+- `basededados.pl` — base de dados dinâmica em Prolog
+- `inferencia.pl` — motor de inferência
+- `db.py` — geração da base sintética em Python
+- `triagem_sintetica.csv` — base de dados final para modelação
+- `historico_triagens.csv` — histórico de triagens
+- `modelagem.ipynb` — notebook com análise e árvores de decisão
+- `server.js` — servidor Node.js
+- `public/` — interface web
+- `package.json` — dependências Node.js
 
 ---
 
 ## Requisitos
 
 ### Prolog
-É necessário ter uma instalação de **SWI-Prolog**.
+É necessário ter **SWI-Prolog** instalado.
 
 ### Python
-É necessário ter Python 3 instalado, com as bibliotecas:
+É necessário ter **Python 3** instalado, com as bibliotecas:
 
 - `pandas`
 - `scikit-learn`
@@ -118,15 +48,17 @@ Com base nestes dados, o sistema determina o encaminhamento adequado.
 - `jupyter`
 
 ### Node.js
-Se for usada a interface web, é necessário ter **Node.js** instalado.
+É necessário ter **Node.js** instalado.
 
 ---
 
-## Como executar a parte em Prolog
+## Como executar a interface principal (Node.js)
 
-Abrir o SWI-Prolog e carregar os ficheiros principais:
+A forma principal de testar o sistema é através da interface web.
 
-```prolog
-['basedeconhecimento.pl'].
-['basededados.pl'].
+### 1. Abrir a pasta do projeto no terminal
+
+### 2. Instalar as dependências
+```bash
+npm install
 ['inferencia.pl'].
