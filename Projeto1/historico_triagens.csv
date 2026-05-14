@@ -1,0 +1,5 @@
+timestamp,idade,tosse,pieira,dor_garganta,congestao_nasal,agravamento,duracao_prolongada,doenca_respiratoria_previa,imunossupressao,febre,dificuldade_respiratoria,dor_toracica,limitacao_respiratoria,encaminhamento,score,faixa
+2026-04-29T12:36:06.570Z,22,nao,sim,sim,sim,nao,nao,sim,nao,nenhuma,moderada,nenhuma,significativa,emergencia,82,emergencia
+2026-04-29T13:46:08.323Z,68,sim,sim,nao,nao,nao,nao,sim,nao,moderada,moderada,nenhuma,nenhuma,urgencia,77,urgencia
+2026-04-29T14:16:37.411Z,12,nao,nao,nao,sim,sim,sim,sim,sim,moderada,nenhuma,nenhuma,alguma,urgencia,72,urgencia
+2026-05-03T20:48:32.363Z,14,nao,nao,sim,sim,nao,nao,nao,sim,nenhuma,nenhuma,nenhuma,nenhuma,sem_encaminhamento,20,autocuidados

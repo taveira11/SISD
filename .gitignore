@@ -1,0 +1,14 @@
+node_modules/
+venv/
+.env
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+Thumbs.db
+
+# bases/vector stores geradas pelo RAG
+chroma_db/
+.vectorstore/
+*.sqlite
+*.db

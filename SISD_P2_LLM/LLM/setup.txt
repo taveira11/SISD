@@ -1,0 +1,21 @@
+# Setup — Sessão LLM
+
+## 1. Instalar Ollama
+https://ollama.com → Download & instalar
+
+## 2. Fazer pull dos modelos (terminal normal)
+ollama pull llama3.2
+ollama pull llama3.2:1b   # versão mais leve (1 GB) — para PCs com menos RAM
+ollama pull nomic-embed-text
+
+## 3. Criar ambiente Python (Anaconda Prompt como Administrador)
+conda create -n llm_p2 python=3.11
+conda activate llm_p2
+conda install pytorch torchvision torchaudio cpuonly -c pytorch
+pip install -r requirements.txt
+
+## 4. Correr o script
+conda activate llm_p2
+python rag_sns24_simples.py
+
+## Nota: Cocar todos os ficheiros dentro da mesma pasta
