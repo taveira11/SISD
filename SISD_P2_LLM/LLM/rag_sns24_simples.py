@@ -70,7 +70,7 @@ print("  → Base de dados pronta!")
 print("A carregar o LLM (llama3.2)...")
 
 chatbot = RetrievalQA.from_chain_type(
-    llm=Ollama(model="llama3.1", temperature=0.1),  # temperatura baixa = mais consistente
+    llm = Ollama(model="llama3.2:1b", temperature=0.1),  # temperatura baixa = mais consistente
     retriever=base_dados.as_retriever(search_kwargs={"k": 3}),  # busca 3 chunks por pergunta, Com k=3, quando o utilizador escreve os sintomas, o retriever calcula a similaridade entre a pergunta e todos os chunks da BD, e devolve os 3 mais parecidos. Esses 3 chunks é que vão para o {context} do prompt.
     chain_type_kwargs={"prompt": prompt}  # usa o prompt personalizado que criámos
 )

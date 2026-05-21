@@ -86,7 +86,7 @@ memoria = ConversationBufferMemory(
 )
 
 chatbot = ConversationalRetrievalChain.from_llm(
-    llm=Ollama(model="llama3.1", temperature=0.1),  # temperatura baixa = mais consistente
+    llm=Ollama(model="llama3.2:1b", temperature=0.1),  # temperatura baixa = mais consistente
     retriever=base_dados.as_retriever(search_kwargs={"k": 3}),  # vai buscar 3 chunks por pergunta
     memory=memoria,
     return_source_documents=True,                       # True = vemos os chunks usados (útil para debug)
