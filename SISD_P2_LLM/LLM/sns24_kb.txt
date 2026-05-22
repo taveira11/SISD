@@ -1,225 +1,1401 @@
-# Base de Conhecimento SNS24 — Protocolos de Triagem Altitude
-# Ficheiro para uso com RAG no Projecto P2
-# Fonte: Adaptado dos protocolos públicos SNS24 / Linha de Saúde
-# ============================================================
+# Base de Conhecimento SNS24 — Triagem Respiratória
+# Projeto 2 — LLM + RAG + Prolog
+# Versão clínica/protocolar alinhada com a base Prolog
 
-## PROTOCOLO: DOR NO PEITO
+============================================================
+1. OBJETIVO DA BASE DE CONHECIMENTO
+============================================================
 
-### Sintomas de EMERGÊNCIA (ligar 112 imediatamente)
-- Dor no peito com irradiação para o braço esquerdo, mandíbula ou costas
-- Dor intensa no peito com suor frio e náuseas
-- Dor no peito com falta de ar severa e lábios azulados
-- Dor no peito em doente com historial cardíaco
-- Palpitações com perda de consciência
-- Pressão ou aperto no peito que não passa em repouso
+Esta base de conhecimento contém regras clínicas e critérios de encaminhamento para um sistema académico de triagem respiratória.
 
-### Sintomas URGENTES (ir ao Serviço de Urgência nas próximas 2h)
-- Dor no peito que piora com o esforço
-- Dor no peito com taquicardia (>100 bpm)
-- Dor no peito com história de hipertensão não controlada
+O sistema é uma simulação académica.
+Não substitui o SNS24, o INEM, o 112, um médico ou uma avaliação clínica real.
+Não faz diagnóstico.
+Não recomenda medicação específica.
 
-### Sintomas de CONSULTA (médico de família em 24-48h)
-- Dor torácica tipo muscular, agravada com palpação
-- Dor intercostal após esforço físico
-- Dor leve e passageira sem outros sintomas associados
+O objetivo desta base é apoiar:
+- a explicação final do encaminhamento;
+- a justificação clínica do resultado;
+- a classificação entre autocuidados, consulta médica, urgência e emergência;
+- a coerência entre a conversa em Python, o LLM e o motor Prolog.
 
-### Encaminhamento
-- EMERGÊNCIA → 112 / INEM
-- URGENTE → Serviço de Urgência Hospitalar
-- CONSULTA → Médico de família / Centro de Saúde
+A entrevista conversacional é controlada pelo Python.
+Esta base de conhecimento serve como referência clínica/protocolar para a decisão e explicação final.
 
----
+============================================================
+2. CAMPOS CLÍNICOS UTILIZADOS PELO SISTEMA E PELO PROLOG
+============================================================
 
-## PROTOCOLO: DIFICULDADE RESPIRATÓRIA / FALTA DE AR
+Esta base de conhecimento está alinhada com a base Prolog do sistema.
 
-### Sintomas de EMERGÊNCIA
-- Falta de ar súbita e severa em repouso
-- Cianose (lábios ou unhas azuladas)
-- Incapacidade de completar frases por falta de ar
-- Criança com tiragem (esforço respiratório visível)
-- Falta de ar com estridor (som de aperto ao respirar)
-- Saturação O2 <90% (se medida)
+O Prolog usa quatro tipos principais de informação:
+- sintomas binários;
+- dados numéricos;
+- sintomas com níveis;
+- encaminhamentos possíveis.
 
-### Sintomas URGENTES
-- Falta de ar que piora progressivamente
-- Sibilância (pieira) não controlada com broncodilatador habitual
-- Falta de ar com febre alta (>39°C)
-- Doente asmático sem melhoria após inalador
+------------------------------------------------------------
+2.1 Sintomas binários
+------------------------------------------------------------
 
-### Sintomas de CONSULTA
-- Tosse crónica com ligeira falta de ar ao esforço
-- Dispneia leve após esforço intenso, sem outros sintomas
+Os sintomas binários só podem ter os valores:
+- sim
+- nao
 
-### AUTO-CUIDADO
-- Tosse seca ocasional sem falta de ar
-- Ligeira obstrução nasal sem dificuldade respiratória
+Sintomas binários usados pelo Prolog:
 
----
+tosse:
+- sim: o paciente refere tosse;
+- nao: o paciente nega tosse.
 
-## PROTOCOLO: FEBRE
+pieira:
+- sim: o paciente refere pieira, chiadeira ou assobio ao respirar;
+- nao: o paciente nega pieira.
 
-### Critérios de idade e temperatura
+dor_garganta:
+- sim: o paciente refere dor de garganta, garganta inflamada ou garganta arranhada;
+- nao: o paciente nega dor de garganta.
 
-**Crianças <3 meses:**
-- Qualquer febre >38°C → EMERGÊNCIA (ir imediatamente ao SU pediátrico)
+congestao_nasal:
+- sim: o paciente refere nariz entupido, nariz tapado, congestão nasal ou corrimento nasal;
+- nao: o paciente nega congestão nasal.
 
-**Crianças 3-36 meses:**
-- Febre >39°C sem causa identificada → URGENTE
-- Febre com convulsão → EMERGÊNCIA (112)
-- Febre com manchas purpúricas na pele → EMERGÊNCIA (112)
+agravamento:
+- sim: os sintomas estão a piorar;
+- nao: os sintomas estão iguais ou a melhorar.
 
-**Adultos:**
-- Febre >39.5°C com rigidez da nuca → EMERGÊNCIA (meningite)
-- Febre >38.5°C com confusão mental → URGENTE
-- Febre >38°C com mais de 5 dias sem melhoria → CONSULTA
-- Febre baixa (<38.5°C) com sintomas leves → AUTO-CUIDADO
+duracao_prolongada:
+- sim: os sintomas duram há mais de 3 dias;
+- nao: os sintomas duram há 3 dias ou menos.
 
-### Medidas de auto-cuidado para febre leve
-- Paracetamol 1g cada 6-8h (adultos)
-- Hidratação abundante (água, chás)
-- Repouso
-- Reavaliar em 24-48h se não melhorar
+doenca_respiratoria_previa:
+- sim: o paciente tem asma, bronquite, DPOC ou outra doença respiratória prévia;
+- nao: o paciente não refere doença respiratória prévia.
 
----
+imunossupressao:
+- sim: o paciente tem imunidade reduzida, defesas baixas, tratamento imunossupressor ou doença que reduza a imunidade;
+- nao: o paciente não refere imunossupressão.
 
-## PROTOCOLO: DOR DE CABEÇA / CEFALEIA
+------------------------------------------------------------
+2.2 Dado numérico
+------------------------------------------------------------
 
-### Sintomas de EMERGÊNCIA ("pior dor de cabeça da vida")
-- Dor de cabeça súbita e muito intensa (thunderclap headache) → suspeita de hemorragia subaracnoideia
-- Dor de cabeça com rigidez da nuca e febre → meningite
-- Dor de cabeça com alteração do estado de consciência
-- Dor de cabeça com fraqueza ou dormência de um lado do corpo → AVC
-- Dor de cabeça com alterações visuais súbitas
-- Cefaleia após traumatismo craniano
+idade:
+- número inteiro entre 0 e 120;
+- usada para avaliar idade de risco.
 
-### Sintomas URGENTES
-- Dor de cabeça intensa não controlada com analgésicos habituais
-- Cefaleia com vómitos persistentes (>3 episódios)
-- Dor de cabeça em grávida (pode ser pré-eclâmpsia)
+------------------------------------------------------------
+2.3 Sintomas com níveis
+------------------------------------------------------------
 
-### AUTO-CUIDADO / CONSULTA
-- Cefaleia tensional (aperto bilateral, sem náuseas)
-- Enxaqueca conhecida com padrão habitual
-- Dor de cabeça leve após má noite de sono ou stress
+febre:
+- nenhuma;
+- moderada;
+- alta.
 
----
+Nota:
+Durante a entrevista, o Python pode usar temporariamente "desconhecida" se o paciente disser que tem febre mas não souber a temperatura.
+No entanto, "desconhecida" não é valor final aceite pelo Prolog.
+Antes da decisão final, a febre deve ser clarificada como nenhuma, moderada ou alta.
 
-## PROTOCOLO: DOR ABDOMINAL
+dificuldade_respiratoria:
+- nenhuma;
+- ligeira;
+- moderada;
+- grave.
 
-### Sintomas de EMERGÊNCIA
-- Dor abdominal súbita e severa com abdómen rígido (abdómen em tábua)
-- Dor abdominal com sangue nas fezes ou vómitos com sangue
-- Suspeita de gravidez ectópica (dor + amenorreia + teste de gravidez positivo)
-- Dor abdominal com hipotensão (tontura ao levantar)
-- Cólica renal com febre (pielonefrite ou sépsis urinária)
+dor_toracica:
+- nenhuma;
+- ligeira;
+- moderada;
+- forte.
 
-### Sintomas URGENTES
-- Dor abdominal intensa localizada no quadrante inferior direito (suspeita de apendicite)
-- Dor epigástrica intensa em doente com história de úlcera péptica
-- Dor abdominal com impossibilidade de andar direito
+limitacao_respiratoria:
+- nenhuma;
+- alguma;
+- significativa.
 
-### Sintomas de CONSULTA
-- Dor abdominal recorrente sem sinais de alarme
-- Cólicas menstruais intensas
-- Dor abdominal com alteração do trânsito intestinal (obstipação/diarreia)
+------------------------------------------------------------
+2.4 Encaminhamentos possíveis
+------------------------------------------------------------
 
-### AUTO-CUIDADO
-- Desconforto abdominal leve após refeição
-- Gases e distensão abdominal sem outros sintomas
+O Prolog usa exatamente estes encaminhamentos:
 
----
+emergencia:
+- situação com sinal de alarme respiratório ou torácico;
+- prioridade máxima.
 
-## PROTOCOLO: TONTURAS / VERTIGENS
+urgencia:
+- situação clinicamente relevante que pode exigir avaliação urgente;
+- não tem necessariamente critérios imediatos de emergência.
 
-### Sintomas de EMERGÊNCIA
-- Tontura com fraqueza súbita de um lado do corpo → AVC
-- Tontura com diplopia (visão dupla) e disfagia → AVC do tronco cerebral
-- Tontura com perda de consciência
-- Síncope (desmaio) completo sem causa evidente
+consulta_medica:
+- situação que justifica avaliação médica, médico de família, centro de saúde ou contacto SNS24;
+- não tem sinais claros de urgência ou emergência.
 
-### Sintomas URGENTES
-- Vertigem intensa com vómitos persistentes e impossibilidade de manter equilíbrio
-- Tontura em doente cardíaco com palpitações
+autocuidados:
+- quadro ligeiro, sem fatores de risco e sem sinais de gravidade;
+- deve haver vigilância da evolução.
 
-### AUTO-CUIDADO / CONSULTA
-- Vertigem posicional benigna (piora ao virar a cabeça, passa em segundos)
-- Tontura leve após levantar rapidamente (hipotensão ortostática)
-- Tonturas em contexto de jejum prolongado
+Na resposta ao utilizador, estes nomes podem ser apresentados em linguagem natural:
+- emergencia → emergência;
+- urgencia → urgência;
+- consulta_medica → consulta médica;
+- autocuidados → autocuidados.
 
----
+============================================================
+3. IDADE E FATORES DE RISCO
+============================================================
 
-## PROTOCOLO: SINTOMAS URINÁRIOS
+A idade é relevante para avaliar risco clínico.
 
-### Sintomas URGENTES / EMERGÊNCIA
-- Retenção urinária aguda (incapacidade de urinar com bexiga cheia)
-- Dor lombar intensa com febre e calafrios (pielonefrite)
-- Hematúria macroscópica (sangue visível na urina) em adulto >40 anos
+Considera-se idade de risco:
+- idade igual ou inferior a 5 anos;
+- idade igual ou superior a 65 anos.
 
-### Sintomas de CONSULTA
-- Disúria (ardor ao urinar) com polaquiúria (urinar muitas vezes) sem febre
-- Infecção urinária baixa sem complicações (cistite)
+São fatores de risco:
+- idade de risco;
+- doença respiratória prévia;
+- imunossupressão.
 
-### AUTO-CUIDADO (se sem febre, sem dor lombar)
-- Beber bastante água (>2L/dia)
-- Evitar cafeína e álcool
-- Reavaliar em 48h se não melhorar → consulta
+Doença respiratória prévia inclui:
+- asma;
+- bronquite;
+- DPOC;
+- doença pulmonar crónica;
+- historial respiratório relevante.
 
----
+Imunossupressão inclui:
+- defesas imunitárias reduzidas;
+- tratamento imunossupressor;
+- doença que reduza a imunidade;
+- situação clínica com maior vulnerabilidade a infeções.
 
-## PROTOCOLO: TRAUMATISMOS / QUEDAS
+Os fatores de risco não significam automaticamente emergência, mas aumentam a gravidade quando associados a:
+- febre alta;
+- dificuldade respiratória;
+- agravamento;
+- sintomas persistentes;
+- pieira;
+- dor torácica.
 
-### EMERGÊNCIA (112)
-- Traumatismo craniano com perda de consciência
-- Suspeita de fractura de coluna (dor cervical ou lombar após queda, formigueiros nos membros)
-- Fractura exposta (osso visível)
-- Hemorragia não controlável
-- Traumatismo em criança pequena (<2 anos) com qualquer queda
+============================================================
+4. FEBRE
+============================================================
 
-### URGENTE
-- Suspeita de fractura de membro (deformidade, impotência funcional, dor intensa)
-- Ferida profunda com necessidade de sutura
-- Traumatismo no tórax com dor à respiração
+A febre deve ser classificada de acordo com a temperatura ou descrição do paciente.
 
-### CONSULTA
-- Entorse com edema e dor moderada
-- Contusão sem deformidade
+Valores finais aceites pelo Prolog:
+- febre = nenhuma
+- febre = moderada
+- febre = alta
 
----
+Importante:
+O valor "desconhecida" pode ser usado apenas durante a conversa, enquanto o chatbot ainda está a recolher informação.
+O valor "desconhecida" não deve ser enviado ao Prolog.
+Antes da decisão final, a febre deve ser clarificada como "nenhuma", "moderada" ou "alta".
 
-## PROTOCOLO: ALERGIAS / REACÇÕES ALÉRGICAS
+febre = nenhuma:
+- temperatura inferior a 37,5 ºC;
+- paciente diz que não tem febre;
+- ausência de sensação febril.
 
-### EMERGÊNCIA (Anafilaxia — 112)
-- Urticária generalizada com dificuldade respiratória
-- Edema da língua, lábios ou garganta após contacto com alergénio
-- Hipotensão após picada de insecto ou medicamento
-- Qualquer reacção grave a alimento ou medicamento com sintomas sistémicos
+febre = moderada:
+- temperatura entre 37,5 ºC e 38,9 ºC;
+- paciente refere febre baixa ou moderada;
+- febrícula com sintomas respiratórios.
 
-### URGENTE
-- Urticária extensa de início súbito sem comprometimento respiratório
-- Reacção cutânea intensa a medicamento (ampolhas, esfoliação)
+febre = alta:
+- temperatura igual ou superior a 39 ºC;
+- paciente refere febre alta;
+- febre com arrepios fortes;
+- febre com grande mal-estar.
 
-### AUTO-CUIDADO
-- Urticária leve localizada (antihistamínico oral)
-- Rinite alérgica sazonal sem complicações
+Se o paciente disser que tem febre mas não souber a temperatura:
+- o chatbot deve perguntar pela temperatura;
+- se continuar sem valor, deve perguntar se a febre parece baixa, moderada ou alta;
+- só depois deve avançar para a orientação final.
 
----
+============================================================
+5. TOSSE
+============================================================
 
-## TABELA RESUMO DE ENCAMINHAMENTOS
+tosse = sim:
+- paciente refere tosse;
+- tosse seca;
+- tosse com expetoração;
+- tosse persistente;
+- tosse que impede dormir;
+- tosse associada a outros sintomas respiratórios.
 
-| Urgência | Encaminhamento | Tempo |
-|---|---|---|
-| EMERGÊNCIA | 112 / INEM ou SU imediatamente | Agora |
-| URGENTE | Serviço de Urgência | <2 horas |
-| CONSULTA | Médico de família / SNS24 | 24-48 horas |
-| AUTO-CUIDADO | Tratamento em casa + reavaliação | Monitorizar |
+tosse = nao:
+- paciente nega tosse;
+- não há referência a tosse.
 
----
+A tosse isolada e ligeira, sem febre alta, sem falta de ar, sem dor torácica e sem agravamento, tende a ser menos grave.
 
-## NOTA SOBRE O SISTEMA SNS24
+A tosse aumenta a gravidade quando associada a:
+- febre alta;
+- dificuldade respiratória;
+- pieira;
+- dor torácica;
+- agravamento;
+- duração prolongada;
+- doença respiratória prévia;
+- imunossupressão;
+- sangue ao tossir.
 
-O SNS24 é o serviço nacional de saúde 24h de Portugal, acessível pelo número 808 24 24 24.
-A linha SNS24 usa os protocolos de triagem clínica Altitude para encaminhar os doentes.
-A APP SNS24 permite auto-triagem de sintomas seguindo os mesmos fluxogramas.
-Os fluxogramas cobrem mais de 50 tipos de sintomas diferentes.
-O objetivo é encaminhar os doentes para o nível de cuidados adequado, evitando
-a utilização desnecessária dos serviços de urgência hospitalar.
+Critérios de emergência associados à tosse:
+- tosse com sangue;
+- tosse com dificuldade respiratória grave;
+- tosse com dor torácica forte;
+- tosse com lábios azulados;
+- tosse com incapacidade de falar por falta de ar.
+
+Critérios de urgência associados à tosse:
+- tosse com febre alta;
+- tosse com falta de ar moderada;
+- tosse com pieira relevante;
+- tosse com doença respiratória prévia e agravamento;
+- tosse em pessoa de risco com febre;
+- tosse com agravamento rápido.
+
+Critérios de consulta médica associados à tosse:
+- tosse persistente;
+- tosse há mais de 3 dias;
+- tosse com febre moderada;
+- tosse que impede dormir;
+- tosse com dor de garganta persistente;
+- tosse sem sinais graves, mas com agravamento.
+
+Critérios de autocuidados associados à tosse:
+- tosse ligeira;
+- tosse de curta duração;
+- ausência de febre alta;
+- ausência de falta de ar;
+- ausência de dor torácica;
+- ausência de agravamento;
+- ausência de fatores de risco.
+
+============================================================
+6. DIFICULDADE RESPIRATÓRIA / FALTA DE AR
+============================================================
+
+dificuldade_respiratoria = nenhuma:
+- paciente nega falta de ar;
+- paciente diz que respira bem;
+- ausência de dificuldade respiratória.
+
+dificuldade_respiratoria = ligeira:
+- respiração mais pesada;
+- cansaço ligeiro ao respirar;
+- falta de ar apenas com esforço maior;
+- consegue falar normalmente;
+- consegue realizar atividades simples.
+
+dificuldade_respiratoria = moderada:
+- falta de ar evidente;
+- dificuldade com pequenos esforços;
+- dificuldade em falar frases longas;
+- sensação de esforço respiratório relevante;
+- piora progressiva da respiração.
+
+dificuldade_respiratoria = grave:
+- grande dificuldade em respirar;
+- sensação de sufoco;
+- incapacidade de falar normalmente;
+- incapacidade de completar frases;
+- lábios ou extremidades azuladas;
+- respiração muito difícil;
+- agravamento rápido;
+- falta de ar em repouso.
+
+Dificuldade respiratória grave é sempre sinal de alarme.
+
+Critérios de emergência:
+- dificuldade respiratória grave;
+- falta de ar intensa em repouso;
+- incapacidade de falar frases completas;
+- lábios azulados;
+- dificuldade respiratória com dor forte no peito;
+- dificuldade respiratória com perda de consciência;
+- dificuldade respiratória súbita e intensa.
+
+Critérios de urgência:
+- dificuldade respiratória moderada;
+- dificuldade respiratória com febre alta;
+- dificuldade respiratória com pieira;
+- dificuldade respiratória em pessoa com asma, DPOC ou doença respiratória prévia;
+- agravamento progressivo da falta de ar.
+
+Critérios de consulta médica:
+- dificuldade respiratória ligeira persistente;
+- cansaço respiratório ligeiro com tosse;
+- falta de ar apenas com esforço, sem sinais de alarme;
+- sintomas respiratórios persistentes sem emergência.
+
+Critérios de autocuidados:
+- ausência de dificuldade respiratória;
+- sintomas ligeiros de vias respiratórias superiores;
+- tosse ligeira sem falta de ar.
+
+============================================================
+7. LIMITAÇÃO RESPIRATÓRIA
+============================================================
+
+limitacao_respiratoria = nenhuma:
+- paciente mantém atividades habituais;
+- sem limitação relevante.
+
+limitacao_respiratoria = alguma:
+- sente algum cansaço;
+- reduz esforços;
+- consegue falar e caminhar, mas com desconforto.
+
+limitacao_respiratoria = significativa:
+- dificuldade importante nas atividades;
+- dificuldade em caminhar;
+- dificuldade em falar;
+- limitação clara por falta de ar;
+- necessidade de repousar frequentemente.
+
+Limitação respiratória significativa aumenta a gravidade, especialmente quando associada a:
+- dificuldade respiratória moderada;
+- dificuldade respiratória grave;
+- febre alta;
+- dor torácica;
+- agravamento.
+
+Critério de emergência:
+- limitação respiratória significativa com dificuldade respiratória grave;
+- limitação respiratória significativa com dor torácica forte;
+- limitação respiratória significativa com lábios azulados.
+
+Critério de urgência:
+- limitação respiratória significativa com dificuldade respiratória moderada;
+- limitação respiratória com febre alta;
+- limitação respiratória com agravamento.
+
+============================================================
+8. DOR TORÁCICA / DOR NO PEITO
+============================================================
+
+dor_toracica = nenhuma:
+- paciente nega dor no peito;
+- ausência de pressão ou aperto torácico.
+
+dor_toracica = ligeira:
+- desconforto leve;
+- dor leve;
+- dor passageira;
+- dor associada a tosse, sem sinais de alarme.
+
+dor_toracica = moderada:
+- dor relevante;
+- pressão no peito;
+- aperto no peito;
+- dor que incomoda bastante;
+- dor com agravamento.
+
+dor_toracica = forte:
+- dor intensa;
+- dor muito forte;
+- dor insuportável;
+- dor associada a falta de ar intensa;
+- dor associada a suor frio;
+- dor associada a náuseas;
+- dor associada a desmaio;
+- dor que não passa em repouso.
+
+Dor torácica forte é sempre sinal de alarme.
+
+Critérios de emergência:
+- dor torácica forte;
+- dor no peito com falta de ar intensa;
+- dor no peito com suor frio;
+- dor no peito com náuseas;
+- dor no peito com desmaio;
+- dor no peito que não passa em repouso;
+- dor no peito com lábios azulados.
+
+Critérios de urgência:
+- dor torácica moderada;
+- dor torácica com agravamento;
+- dor torácica associada a febre alta;
+- dor torácica associada a dificuldade respiratória moderada;
+- dor torácica em pessoa com fatores de risco.
+
+Critérios de consulta médica:
+- dor torácica ligeira sem falta de ar;
+- dor associada a tosse persistente;
+- desconforto torácico ligeiro e passageiro;
+- dor sem sinais de alarme, mas persistente.
+
+Critérios de autocuidados:
+- ausência de dor torácica;
+- sintomas respiratórios ligeiros sem dor no peito.
+
+============================================================
+9. DOR DE GARGANTA
+============================================================
+
+dor_garganta = sim:
+- dor de garganta;
+- garganta inflamada;
+- garganta arranhada;
+- dificuldade em engolir associada a dor;
+- desconforto faríngeo.
+
+dor_garganta = nao:
+- paciente nega dor de garganta;
+- ausência de sintomas de garganta.
+
+A dor de garganta isolada e ligeira, sem febre alta, sem dificuldade respiratória e sem agravamento, tende a ser menos grave.
+
+Critérios de emergência:
+- dor de garganta com dificuldade respiratória grave;
+- inchaço importante da garganta com dificuldade em respirar;
+- incapacidade de engolir saliva;
+- dor de garganta com sinais de obstrução respiratória.
+
+Critérios de urgência:
+- dor de garganta com febre alta;
+- dor de garganta com grande dificuldade em engolir;
+- dor de garganta com agravamento rápido;
+- dor de garganta em pessoa imunossuprimida.
+
+Critérios de consulta médica:
+- dor de garganta persistente;
+- dor de garganta há mais de 3 dias;
+- dor de garganta com febre moderada;
+- dor de garganta com tosse persistente;
+- dificuldade em engolir sem sinais de emergência.
+
+Critérios de autocuidados:
+- dor de garganta ligeira;
+- ausência de febre alta;
+- ausência de dificuldade respiratória;
+- ausência de dor torácica;
+- ausência de agravamento.
+
+============================================================
+10. CONGESTÃO NASAL / NARIZ ENTUPIDO
+============================================================
+
+congestao_nasal = sim:
+- nariz entupido;
+- nariz tapado;
+- pingo no nariz;
+- corrimento nasal;
+- congestão nasal;
+- obstrução nasal.
+
+congestao_nasal = nao:
+- paciente nega sintomas nasais;
+- ausência de congestão nasal.
+
+Congestão nasal isolada, sem febre alta, sem falta de ar e sem dor torácica, tende a ser quadro ligeiro.
+
+Critérios de consulta médica:
+- congestão nasal persistente;
+- congestão nasal com febre persistente;
+- congestão nasal com agravamento;
+- sintomas nasais há mais de 3 dias;
+- congestão nasal associada a dor facial intensa ou agravamento.
+
+Critérios de autocuidados:
+- congestão nasal ligeira;
+- corrimento nasal;
+- sintomas de curta duração;
+- ausência de febre alta;
+- ausência de falta de ar;
+- ausência de dor torácica;
+- ausência de agravamento.
+
+============================================================
+11. PIEIRA / CHIADEIRA
+============================================================
+
+pieira = sim:
+- pieira;
+- chiadeira;
+- assobio ao respirar;
+- sibilância;
+- som respiratório anormal.
+
+pieira = nao:
+- paciente nega pieira;
+- ausência de chiadeira.
+
+A pieira aumenta a preocupação clínica quando associada a dificuldade respiratória.
+
+Critérios de emergência:
+- pieira com dificuldade respiratória grave;
+- pieira com incapacidade de falar normalmente;
+- pieira com lábios azulados;
+- pieira com sensação de sufoco.
+
+Critérios de urgência:
+- pieira com dificuldade respiratória moderada;
+- pieira em pessoa com asma ou DPOC;
+- pieira associada a febre alta;
+- pieira com agravamento;
+- pieira persistente apesar de medidas habituais.
+
+Critérios de consulta médica:
+- pieira ligeira sem dificuldade respiratória importante;
+- pieira recorrente;
+- pieira associada a tosse persistente.
+
+============================================================
+12. AGRAVAMENTO
+============================================================
+
+agravamento = sim:
+- sintomas estão a piorar;
+- sintomas agravaram;
+- sintomas cada vez piores;
+- agravamento desde o início;
+- piora progressiva.
+
+agravamento = nao:
+- sintomas estão iguais;
+- sintomas estão a melhorar;
+- sem agravamento.
+
+O agravamento aumenta a gravidade, especialmente quando associado a:
+- febre alta;
+- dificuldade respiratória;
+- dor torácica;
+- pieira;
+- doença respiratória prévia;
+- imunossupressão;
+- idade de risco.
+
+Critérios de urgência:
+- agravamento com dificuldade respiratória;
+- agravamento com febre alta;
+- agravamento com dor torácica moderada;
+- agravamento em pessoa com fatores de risco.
+
+Critérios de consulta médica:
+- agravamento ligeiro sem sinais de alarme;
+- sintomas persistentes que não melhoram;
+- sintomas há mais de 3 dias.
+
+============================================================
+13. DURAÇÃO PROLONGADA
+============================================================
+
+duracao_prolongada = sim:
+- sintomas há mais de 3 dias;
+- tosse persistente;
+- dor de garganta persistente;
+- febre persistente;
+- sintomas respiratórios sem melhoria ao longo de vários dias.
+
+duracao_prolongada = nao:
+- sintomas começaram hoje;
+- sintomas há 1 a 3 dias;
+- sintomas recentes.
+
+Duração prolongada aumenta a probabilidade de consulta médica, principalmente quando associada a:
+- tosse;
+- febre;
+- dor de garganta;
+- congestão nasal com agravamento;
+- pessoa com fatores de risco.
+
+Critérios de consulta médica:
+- tosse há mais de 3 dias;
+- febre há mais de 3 dias;
+- dor de garganta há mais de 3 dias;
+- sintomas persistentes sem melhoria;
+- sintomas persistentes em pessoa com fatores de risco.
+
+============================================================
+14. DOENÇA RESPIRATÓRIA PRÉVIA
+============================================================
+
+doenca_respiratoria_previa = sim:
+- asma;
+- bronquite;
+- DPOC;
+- doença pulmonar crónica;
+- doença respiratória relevante.
+
+doenca_respiratoria_previa = nao:
+- ausência conhecida de doença respiratória prévia.
+
+A doença respiratória prévia aumenta a gravidade quando associada a:
+- febre alta;
+- dificuldade respiratória;
+- pieira;
+- agravamento;
+- tosse persistente.
+
+Critérios de urgência:
+- doença respiratória prévia com dificuldade respiratória moderada;
+- doença respiratória prévia com febre alta;
+- doença respiratória prévia com pieira e agravamento;
+- doença respiratória prévia com agravamento progressivo.
+
+Critérios de consulta médica:
+- doença respiratória prévia com sintomas respiratórios persistentes;
+- tosse persistente em pessoa com asma, bronquite ou DPOC;
+- pieira ligeira recorrente.
+
+============================================================
+15. IMUNOSSUPRESSÃO
+============================================================
+
+imunossupressao = sim:
+- imunidade baixa;
+- defesas baixas;
+- tratamento imunossupressor;
+- quimioterapia;
+- transplante;
+- doença que reduza a imunidade.
+
+imunossupressao = nao:
+- ausência conhecida de imunossupressão.
+
+A imunossupressão aumenta a gravidade quando associada a:
+- febre;
+- agravamento;
+- dificuldade respiratória;
+- sintomas persistentes;
+- infeção respiratória suspeita.
+
+Critérios de urgência:
+- imunossupressão com febre alta;
+- imunossupressão com dificuldade respiratória;
+- imunossupressão com agravamento;
+- imunossupressão com sintomas persistentes.
+
+Critérios de consulta médica:
+- imunossupressão com sintomas respiratórios ligeiros mas persistentes;
+- imunossupressão com tosse ou dor de garganta sem sinais de emergência.
+
+============================================================
+16. SINAIS DE ALARME
+============================================================
+
+Os sinais de alarme são situações que, segundo a base Prolog, devem encaminhar o caso para emergencia.
+
+A base Prolog considera sinal de alarme quando existe pelo menos uma das seguintes condições:
+
+1. dificuldade_respiratoria = grave
+
+Isto representa:
+- grande dificuldade em respirar;
+- sensação de sufoco;
+- incapacidade de falar normalmente;
+- falta de ar intensa;
+- lábios ou extremidades azuladas;
+- agravamento respiratório rápido.
+
+2. limitacao_respiratoria = significativa
+   E dificuldade_respiratoria = moderada
+
+Isto representa:
+- limitação importante nas atividades;
+- dificuldade em caminhar ou falar por causa da respiração;
+- necessidade de repousar frequentemente;
+- falta de ar moderada associada a limitação funcional clara.
+
+3. dor_toracica = forte
+
+Isto representa:
+- dor intensa no peito;
+- dor muito forte;
+- dor insuportável;
+- aperto forte no peito;
+- dor no peito associada a falta de ar intensa, suor frio, náuseas ou desmaio.
+
+4. dificuldade_respiratoria = moderada
+   E dor_toracica = moderada
+   E agravamento = sim
+
+Isto representa:
+- falta de ar moderada;
+- dor ou pressão moderada no peito;
+- sintomas a piorar desde o início.
+
+Quando qualquer uma destas condições estiver presente, o encaminhamento provável deve ser emergencia.
+
+O sistema deve tratar estes sinais como prioridade máxima.
+Mesmo que existam sintomas ligeiros associados, a presença de um sinal de alarme deve prevalecer.
+
+Nota importante:
+Alguns sinais descritos em linguagem natural, como "lábios azulados", "não consigo falar por falta de ar" ou "sensação de sufoco", devem ser convertidos pelo Python para dificuldade_respiratoria = grave antes da chamada ao Prolog.
+
+============================================================
+17. ENCAMINHAMENTO: EMERGÊNCIA
+============================================================
+
+Nome técnico no Prolog:
+emergencia
+
+O encaminhamento emergencia deve ser escolhido quando existir sinal de alarme respiratório ou torácico.
+
+Critérios oficiais da base Prolog:
+
+- dificuldade_respiratoria = grave;
+
+- limitacao_respiratoria = significativa
+  E dificuldade_respiratoria = moderada;
+
+- dor_toracica = forte;
+
+- dificuldade_respiratoria = moderada
+  E dor_toracica = moderada
+  E agravamento = sim.
+
+Motivo associado no Prolog:
+"Presenca de sinal de alarme respiratorio ou toracico."
+
+Explicação em linguagem natural:
+O caso é considerado potencialmente grave quando existe dificuldade respiratória grave, dor torácica forte, limitação respiratória significativa associada a falta de ar moderada, ou combinação de falta de ar moderada com dor torácica moderada e agravamento.
+
+Orientação ao paciente:
+- recomendar ajuda urgente;
+- recomendar contacto com 112/INEM se existirem sinais graves;
+- explicar que há sinais respiratórios ou torácicos de alarme;
+- não fazer diagnóstico;
+- não recomendar medicação específica;
+- reforçar que é uma simulação académica.
+
+============================================================
+18. ENCAMINHAMENTO: URGÊNCIA
+============================================================
+
+Nome técnico no Prolog:
+urgencia
+
+O encaminhamento urgencia deve ser escolhido quando existe risco clínico relevante, mas sem critérios suficientes para emergencia.
+
+A urgencia tem prioridade inferior a emergencia e superior a consulta_medica.
+
+Critérios oficiais da base Prolog:
+
+1. Febre relevante associada a compromisso respiratório importante.
+
+Isto acontece quando existe:
+- febre = alta;
+OU
+- febre = moderada E duracao_prolongada = sim;
+
+E, ao mesmo tempo, existe compromisso respiratório importante:
+- dificuldade_respiratoria = moderada;
+OU
+- limitacao_respiratoria = significativa.
+
+Motivo associado no Prolog:
+"Febre relevante associada a compromisso respiratorio importante."
+
+Explicação em linguagem natural:
+A presença de febre relevante juntamente com dificuldade respiratória moderada ou limitação respiratória significativa pode indicar maior risco e justificar avaliação urgente.
+
+------------------------------------------------------------
+
+2. Pieira associada a dificuldade respiratória moderada.
+
+Isto acontece quando:
+- pieira = sim;
+E
+- dificuldade_respiratoria = moderada.
+
+Motivo associado no Prolog:
+"Pieira associada a dificuldade respiratoria moderada."
+
+Explicação em linguagem natural:
+A pieira, quando acompanhada de dificuldade respiratória moderada, pode indicar compromisso respiratório relevante e justificar avaliação urgente.
+
+------------------------------------------------------------
+
+3. Dor torácica relevante associada a compromisso respiratório.
+
+Isto acontece quando existe dor torácica relevante:
+- dor_toracica = moderada;
+OU
+- dor_toracica = forte;
+
+E existe compromisso respiratório:
+- dificuldade_respiratoria = moderada;
+OU
+- limitacao_respiratoria = significativa;
+OU
+- dificuldade_respiratoria = ligeira;
+OU
+- limitacao_respiratoria = alguma;
+OU
+- pieira = sim com dificuldade_respiratoria = nenhuma.
+
+Motivo associado no Prolog:
+"Dor toracica relevante associada a compromisso respiratorio."
+
+Explicação em linguagem natural:
+A combinação de dor torácica relevante com sinais de compromisso respiratório aumenta a prioridade clínica e pode justificar avaliação urgente.
+
+Nota:
+Se dor_toracica = forte, o caso pode passar para emergencia, porque dor torácica forte é sinal de alarme.
+
+------------------------------------------------------------
+
+4. Doente de risco com febre alta.
+
+Isto acontece quando:
+- fator_risco = sim;
+E
+- febre = alta.
+
+São fatores de risco:
+- idade <= 5;
+- idade >= 65;
+- doenca_respiratoria_previa = sim;
+- imunossupressao = sim.
+
+Motivo associado no Prolog:
+"Doente de risco com febre alta."
+
+Explicação em linguagem natural:
+A febre alta em pessoas com fatores de risco pode justificar avaliação urgente, mesmo sem sinais imediatos de emergência.
+
+------------------------------------------------------------
+
+5. Doente de risco com agravamento e dificuldade respiratória.
+
+Isto acontece quando:
+- fator_risco = sim;
+E
+- agravamento = sim;
+E existe compromisso respiratório importante ou ligeiro.
+
+Compromisso respiratório importante:
+- dificuldade_respiratoria = moderada;
+OU
+- limitacao_respiratoria = significativa.
+
+Compromisso respiratório ligeiro:
+- dificuldade_respiratoria = ligeira;
+OU
+- limitacao_respiratoria = alguma;
+OU
+- pieira = sim com dificuldade_respiratoria = nenhuma.
+
+Motivo associado no Prolog:
+"Doente de risco com agravamento e dificuldade respiratoria."
+
+Explicação em linguagem natural:
+Quando uma pessoa com fator de risco apresenta agravamento e sinais respiratórios, o caso ganha prioridade e pode justificar avaliação urgente.
+
+------------------------------------------------------------
+
+6. Compromisso respiratório com agravamento clínico.
+
+Isto acontece quando:
+- agravamento = sim;
+E
+- compromisso_respiratorio_importante = sim.
+
+Compromisso respiratório importante:
+- dificuldade_respiratoria = moderada;
+OU
+- limitacao_respiratoria = significativa.
+
+Motivo associado no Prolog:
+"Compromisso respiratorio com agravamento clinico."
+
+Explicação em linguagem natural:
+A dificuldade respiratória moderada ou limitação respiratória significativa, quando está a piorar, pode justificar avaliação urgente.
+
+------------------------------------------------------------
+
+Orientação ao paciente em caso de urgencia:
+- explicar que existe risco clínico relevante;
+- recomendar contacto com SNS24 ou avaliação urgente;
+- explicar os principais sintomas que justificam a prioridade;
+- não fazer diagnóstico;
+- não recomendar medicação específica;
+- reforçar que é uma simulação académica.
+
+Exemplo de explicação final:
+"Pelos sintomas recolhidos, o encaminhamento provável seria urgência, porque existe compromisso respiratório associado a fatores de maior risco ou agravamento. Esta é apenas uma simulação académica e não substitui avaliação médica real. Numa situação real, deve contactar o SNS24 ou procurar avaliação urgente, especialmente se os sintomas continuarem a piorar."
+
+============================================================
+19. ENCAMINHAMENTO: CONSULTA MÉDICA
+============================================================
+
+Nome técnico no Prolog:
+consulta_medica
+
+O encaminhamento consulta_medica deve ser escolhido quando existem sintomas respiratórios relevantes, persistentes ou em agravamento, mas sem critérios de emergencia nem de urgencia.
+
+A consulta_medica tem prioridade inferior a urgencia e superior a autocuidados.
+
+Critérios oficiais da base Prolog:
+
+------------------------------------------------------------
+1. Tosse com agravamento, sem critérios de urgência
+------------------------------------------------------------
+
+Isto acontece quando:
+- tosse = sim;
+- agravamento = sim;
+- dificuldade_respiratoria = nenhuma;
+- limitacao_respiratoria = nenhuma;
+- dor_toracica = nenhuma.
+
+Motivo associado no Prolog:
+"Tosse com agravamento, sem criterios de urgencia."
+
+Explicação em linguagem natural:
+A tosse que está a piorar pode justificar avaliação médica, mesmo quando não existe falta de ar, limitação respiratória ou dor no peito.
+
+------------------------------------------------------------
+2. Tosse com febre moderada e duração prolongada
+------------------------------------------------------------
+
+Isto acontece quando:
+- tosse = sim;
+- febre = moderada;
+- duracao_prolongada = sim;
+- dificuldade_respiratoria = nenhuma;
+- limitacao_respiratoria = nenhuma.
+
+Motivo associado no Prolog:
+"Tosse com febre moderada e duracao prolongada."
+
+Explicação em linguagem natural:
+A combinação de tosse, febre moderada e sintomas prolongados pode justificar consulta médica, mesmo sem sinais de urgência.
+
+------------------------------------------------------------
+3. Febre alta sem dificuldade respiratória
+------------------------------------------------------------
+
+Isto acontece quando:
+- febre = alta;
+- dificuldade_respiratoria = nenhuma;
+- limitacao_respiratoria = nenhuma.
+
+Motivo associado no Prolog:
+"Febre alta sem dificuldade respiratoria."
+
+Explicação em linguagem natural:
+A febre alta, mesmo sem dificuldade respiratória, pode justificar avaliação médica para perceber a evolução do quadro.
+
+Nota:
+Se a febre alta estiver associada a fator de risco, dificuldade respiratória ou agravamento relevante, o encaminhamento pode subir para urgencia.
+
+------------------------------------------------------------
+4. Dor torácica ligeira sem compromisso respiratório
+------------------------------------------------------------
+
+Isto acontece quando:
+- dor_toracica = ligeira;
+- dificuldade_respiratoria = nenhuma;
+- limitacao_respiratoria = nenhuma.
+
+Motivo associado no Prolog:
+"Dor toracica ligeira sem compromisso respiratorio."
+
+Explicação em linguagem natural:
+Uma dor torácica ligeira, sem falta de ar ou limitação respiratória, não corresponde automaticamente a emergência, mas pode justificar avaliação médica.
+
+------------------------------------------------------------
+5. Limitação respiratória ligeira sem critérios de urgência
+------------------------------------------------------------
+
+Isto acontece quando:
+- limitacao_respiratoria = alguma;
+- dificuldade_respiratoria = ligeira.
+
+Motivo associado no Prolog:
+"Limitacao respiratoria ligeira sem criterios de urgencia."
+
+Explicação em linguagem natural:
+Alguma limitação respiratória com dificuldade respiratória ligeira pode justificar avaliação médica, mesmo que não existam sinais de urgência.
+
+------------------------------------------------------------
+6. Doente de risco com tosse persistente ou em agravamento
+------------------------------------------------------------
+
+Isto acontece quando:
+- fator_risco = sim;
+- tosse = sim;
+E existe pelo menos uma das seguintes condições:
+- duracao_prolongada = sim;
+OU
+- agravamento = sim.
+
+São fatores de risco:
+- idade <= 5;
+- idade >= 65;
+- doenca_respiratoria_previa = sim;
+- imunossupressao = sim.
+
+Motivo associado no Prolog:
+"Doente de risco com tosse persistente ou em agravamento."
+
+Explicação em linguagem natural:
+Em pessoas com fatores de risco, a tosse persistente ou em agravamento merece maior atenção clínica e pode justificar consulta médica.
+
+------------------------------------------------------------
+7. Doente de risco com tosse e febre
+------------------------------------------------------------
+
+Isto acontece quando:
+- fator_risco = sim;
+- tosse = sim;
+E existe:
+- febre = moderada;
+OU
+- febre = alta.
+
+Motivo associado no Prolog:
+"Doente de risco com tosse e febre."
+
+Explicação em linguagem natural:
+A associação de tosse e febre em pessoa com fator de risco pode justificar avaliação médica, mesmo que não existam sinais de emergência.
+
+Nota:
+Se for febre alta em doente de risco, a base Prolog também pode classificar como urgencia.
+
+------------------------------------------------------------
+8. Doente de risco com duração prolongada dos sintomas
+------------------------------------------------------------
+
+Isto acontece quando:
+- fator_risco = sim;
+- duracao_prolongada = sim.
+
+Motivo associado no Prolog:
+"Doente de risco com duracao prolongada dos sintomas."
+
+Explicação em linguagem natural:
+Sintomas prolongados em pessoas com fatores de risco podem justificar avaliação médica.
+
+------------------------------------------------------------
+9. Pieira sem dificuldade respiratória marcada
+------------------------------------------------------------
+
+Isto acontece quando:
+- pieira = sim;
+- dificuldade_respiratoria = nenhuma.
+
+Motivo associado no Prolog:
+"Pieira sem dificuldade respiratoria marcada."
+
+Explicação em linguagem natural:
+A pieira, mesmo sem dificuldade respiratória marcada, pode justificar consulta médica, especialmente se for persistente ou recorrente.
+
+Nota:
+Se pieira = sim e dificuldade_respiratoria = moderada, o encaminhamento pode subir para urgencia.
+
+------------------------------------------------------------
+10. Sintomas persistentes com agravamento, sem sinais de alarme
+------------------------------------------------------------
+
+Isto acontece quando:
+- duracao_prolongada = sim;
+- agravamento = sim;
+- dificuldade_respiratoria = nenhuma;
+- limitacao_respiratoria = nenhuma.
+
+Motivo associado no Prolog:
+"Sintomas persistentes com agravamento, sem sinais de alarme."
+
+Explicação em linguagem natural:
+Quando os sintomas já duram há vários dias e estão a piorar, pode ser necessária consulta médica, mesmo sem sinais de emergência.
+
+------------------------------------------------------------
+11. Febre moderada persistente sem compromisso respiratório
+------------------------------------------------------------
+
+Isto acontece quando:
+- febre = moderada;
+- duracao_prolongada = sim;
+- dificuldade_respiratoria = nenhuma;
+- limitacao_respiratoria = nenhuma.
+
+Motivo associado no Prolog:
+"Febre moderada persistente, sem compromisso respiratorio."
+
+Explicação em linguagem natural:
+A febre moderada prolongada, mesmo sem falta de ar, pode justificar avaliação médica.
+
+------------------------------------------------------------
+Orientação ao paciente em caso de consulta_medica
+------------------------------------------------------------
+
+A resposta final deve:
+- explicar que não há critérios claros de emergencia ou urgencia;
+- indicar que existem sintomas que justificam avaliação médica;
+- recomendar contacto com médico de família, centro de saúde ou SNS24;
+- valorizar persistência, agravamento, febre, tosse, pieira ou fatores de risco;
+- não fazer diagnóstico;
+- não recomendar medicação específica;
+- reforçar que é uma simulação académica.
+
+Exemplo de explicação final:
+"Pelos sintomas recolhidos, o encaminhamento provável seria consulta médica, porque existem sintomas respiratórios persistentes ou em agravamento, mas sem sinais claros de emergência. Esta é apenas uma simulação académica e não substitui avaliação médica real. Se os sintomas persistirem, agravarem, ou se surgir falta de ar, dor no peito ou febre alta, deve contactar o SNS24 ou um profissional de saúde."
+
+
+
+============================================================
+20. ENCAMINHAMENTO: AUTOCUIDADOS
+============================================================
+
+Nome técnico no Prolog:
+autocuidados
+
+O encaminhamento autocuidados deve ser escolhido apenas quando o quadro parece ligeiro, sem sinais de alarme, sem critérios de urgencia ou consulta_medica, e sem fatores de risco relevantes.
+
+Na base Prolog, autocuidados surge em dois cenários principais:
+
+------------------------------------------------------------
+1. Quadro ligeiro de vias respiratórias superiores, sem fatores de risco
+------------------------------------------------------------
+
+Isto acontece quando existe um quadro ligeiro de vias respiratórias superiores.
+
+Critérios oficiais da base Prolog:
+
+- dor_garganta = sim;
+- congestao_nasal = sim;
+- febre = nenhuma;
+- dificuldade_respiratoria = nenhuma;
+- limitacao_respiratoria = nenhuma;
+- dor_toracica = nenhuma;
+- agravamento = nao;
+- duracao_prolongada = nao;
+- sem fator_risco.
+
+São fatores de risco:
+- idade <= 5;
+- idade >= 65;
+- doenca_respiratoria_previa = sim;
+- imunossupressao = sim.
+
+Motivo associado no Prolog:
+"Quadro ligeiro de vias respiratorias superiores, sem fatores de risco."
+
+Explicação em linguagem natural:
+Quando existe dor de garganta e congestão nasal, mas sem febre, sem falta de ar, sem dor no peito, sem agravamento, sem duração prolongada e sem fatores de risco, o quadro tende a ser ligeiro.
+
+------------------------------------------------------------
+2. Tosse ligeira isolada, sem fatores de risco nem sinais de gravidade
+------------------------------------------------------------
+
+Isto acontece quando:
+
+- tosse = sim;
+- febre = nenhuma;
+- dificuldade_respiratoria = nenhuma;
+- limitacao_respiratoria = nenhuma;
+- dor_toracica = nenhuma;
+- agravamento = nao;
+- duracao_prolongada = nao;
+- pieira = nao;
+- sem fator_risco.
+
+Motivo associado no Prolog:
+"Tosse ligeira isolada, sem fatores de risco nem sinais de gravidade."
+
+Explicação em linguagem natural:
+Quando a tosse aparece isolada, sem febre, sem falta de ar, sem dor no peito, sem pieira, sem agravamento, sem duração prolongada e sem fatores de risco, o encaminhamento provável pode ser autocuidados.
+
+------------------------------------------------------------
+Orientação ao paciente em caso de autocuidados
+------------------------------------------------------------
+
+A resposta final deve:
+- explicar que não foram identificados sinais de alarme;
+- explicar que os sintomas parecem ligeiros;
+- recomendar vigilância da evolução;
+- mencionar repouso e hidratação de forma geral;
+- não recomendar medicação específica;
+- avisar que deve procurar apoio se houver agravamento;
+- reforçar que é uma simulação académica.
+
+Exemplo de explicação final:
+"Pelos sintomas recolhidos, o encaminhamento provável seria autocuidados, porque o quadro parece ligeiro e sem sinais de alarme, como falta de ar, dor no peito, febre ou agravamento. Esta é apenas uma simulação académica e não substitui avaliação médica real. Se os sintomas piorarem, persistirem ou surgir febre alta, falta de ar ou dor no peito, deve contactar o SNS24 ou um profissional de saúde."
+
+============================================================
+21. PRIORIDADE ENTRE ENCAMINHAMENTOS
+============================================================
+
+A prioridade deve seguir esta ordem:
+
+1. Emergência
+2. Urgência
+3. Consulta médica
+4. Autocuidados
+
+Se existir pelo menos um critério de emergência, a orientação deve ser emergência, mesmo que existam sintomas ligeiros associados.
+
+Se não houver emergência, mas houver critérios de urgência, a orientação deve ser urgência.
+
+Se não houver emergência nem urgência, mas houver sintomas persistentes, fatores de risco ou agravamento ligeiro, a orientação deve ser consulta médica.
+
+Se o quadro for ligeiro, recente, sem sinais de alarme, sem agravamento e sem fatores de risco, a orientação pode ser autocuidados.
+
+
+============================================================
+22. PONTUAÇÃO CLÍNICA DO PROLOG
+============================================================
+
+Além das regras de encaminhamento, a base Prolog também calcula uma pontuação clínica associada aos sintomas e fatores de risco.
+
+Esta pontuação ajuda a justificar a gravidade global do caso.
+Pontuações mais altas indicam maior preocupação clínica.
+
+A pontuação não substitui as regras de encaminhamento.
+Se existir critério de emergencia, a emergência deve prevalecer mesmo que outros sintomas sejam ligeiros.
+
+------------------------------------------------------------
+22.1 Idade
+------------------------------------------------------------
+
+idade de risco:
+- idade <= 5;
+- idade >= 65.
+
+Pontuação:
+- idade de risco: +10 pontos;
+- outras idades: +0 pontos.
+
+------------------------------------------------------------
+22.2 Sintomas binários
+------------------------------------------------------------
+
+tosse:
+- sim: +5 pontos;
+- nao: +0 pontos.
+
+pieira:
+- sim: +12 pontos;
+- nao: +0 pontos.
+
+dor_garganta:
+- sim: +3 pontos;
+- nao: +0 pontos.
+
+congestao_nasal:
+- sim: +2 pontos;
+- nao: +0 pontos.
+
+agravamento:
+- sim: +15 pontos;
+- nao: +0 pontos.
+
+duracao_prolongada:
+- sim: +10 pontos;
+- nao: +0 pontos.
+
+doenca_respiratoria_previa:
+- sim: +10 pontos;
+- nao: +0 pontos.
+
+imunossupressao:
+- sim: +15 pontos;
+- nao: +0 pontos.
+
+------------------------------------------------------------
+22.3 Sintomas por nível
+------------------------------------------------------------
+
+febre:
+- nenhuma: +0 pontos;
+- moderada: +10 pontos;
+- alta: +20 pontos.
+
+dificuldade_respiratoria:
+- nenhuma: +0 pontos;
+- ligeira: +15 pontos;
+- moderada: +30 pontos;
+- grave: +45 pontos.
+
+dor_toracica:
+- nenhuma: +0 pontos;
+- ligeira: +8 pontos;
+- moderada: +20 pontos;
+- forte: +35 pontos.
+
+limitacao_respiratoria:
+- nenhuma: +0 pontos;
+- alguma: +10 pontos;
+- significativa: +25 pontos.
+
+------------------------------------------------------------
+22.4 Como explicar a pontuação
+------------------------------------------------------------
+
+A pontuação pode ser usada na resposta final para explicar a gravidade de forma simples.
+
+Exemplos de explicação:
+- "A pontuação aumenta sobretudo pela presença de febre alta."
+- "A dificuldade respiratória moderada contribui bastante para a prioridade do caso."
+- "A ausência de dor no peito e de dificuldade respiratória grave reduz os sinais de alarme."
+- "A presença de agravamento aumenta a preocupação clínica."
+
+A resposta final não deve apresentar a pontuação como diagnóstico.
+A pontuação deve ser explicada como uma ajuda académica à triagem.
+
+
+
+============================================================
+23. COMO EXPLICAR O RESULTADO FINAL
+============================================================
+
+A resposta final deve:
+- ser clara;
+- ser curta;
+- usar linguagem natural;
+- indicar o encaminhamento provável;
+- justificar com os principais sintomas recolhidos;
+- mencionar que é uma simulação académica;
+- não fazer diagnóstico;
+- não recomendar medicação específica;
+- não garantir segurança absoluta;
+- recomendar ajuda urgente quando houver sinais graves;
+- recomendar contacto com SNS24/profissional de saúde quando houver dúvida, persistência ou agravamento.
+
+Estrutura recomendada da resposta final:
+
+1. Reconhecer brevemente os sintomas principais.
+2. Indicar o encaminhamento provável.
+3. Explicar os motivos clínicos principais.
+4. Incluir nota de segurança académica.
+5. Indicar quando procurar ajuda.
+
+Exemplo de resposta final para autocuidados:
+"Pelo que descreveu, os sintomas parecem ligeiros e sem sinais claros de alarme, como falta de ar importante ou dor no peito. O encaminhamento provável seria autocuidados e vigilância da evolução. Esta é apenas uma simulação académica e não substitui avaliação médica real. Se surgir febre alta, falta de ar, dor no peito ou agravamento, deve contactar um profissional de saúde ou o SNS24."
+
+Exemplo de resposta final para consulta médica:
+"Pelos sintomas descritos, como tosse persistente e febre moderada, o encaminhamento provável seria consulta médica ou contacto com o SNS24, sobretudo se os sintomas persistirem ou agravarem. Não existem sinais claros de emergência, mas há motivos para avaliação clínica. Esta é apenas uma simulação académica e não substitui avaliação médica real."
+
+Exemplo de resposta final para urgência:
+"Pela combinação de febre alta e dificuldade respiratória moderada, o encaminhamento provável seria avaliação urgente. Estes sintomas podem indicar maior risco, especialmente se estiverem a agravar. Esta é apenas uma simulação académica e não substitui avaliação médica real. Numa situação real, deve contactar o SNS24 ou procurar avaliação urgente."
+
+Exemplo de resposta final para emergência:
+"Pelos sinais descritos, como falta de ar intensa ou dor forte no peito, o encaminhamento provável seria emergência. Estes sinais podem indicar uma situação potencialmente grave. Esta é apenas uma simulação académica e não substitui avaliação médica real. Numa situação real, deve contactar 112/INEM imediatamente."
+
+============================================================
+24. LIMITES E SEGURANÇA
+============================================================
+
+O sistema não deve:
+- fazer diagnóstico;
+- indicar uma doença específica como certeza;
+- recomendar antibióticos, anti-inflamatórios ou outros medicamentos específicos;
+- garantir que não existe risco;
+- substituir avaliação médica.
+
+O sistema deve:
+- ser prudente;
+- valorizar sinais de alarme;
+- recomendar ajuda urgente se houver sinais graves;
+- recomendar contacto com SNS24/profissional de saúde se houver dúvida;
+- apresentar sempre a resposta final como simulação académica.
