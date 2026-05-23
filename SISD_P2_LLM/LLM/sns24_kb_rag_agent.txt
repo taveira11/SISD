@@ -28,6 +28,81 @@ O LLM não deve substituir o Prolog.
 O LLM deve recolher informação, manter a conversa e explicar a decisão.
 
 ============================================================
+0.1 REGRAS PRIORITÁRIAS CONTRA ERROS OBSERVADOS
+============================================================
+
+Estas regras têm prioridade sobre exemplos anteriores desta base.
+
+A) Não apagar informação já confirmada
+- Se um campo já está preenchido no estado clínico com um valor confirmado, o LLM não deve voltar a enviá-lo como "desconhecida".
+- Exemplos:
+  - Se dificuldade_respiratoria = "ligeira", não enviar depois dificuldade_respiratoria = "desconhecida".
+  - Se febre = "alta", não enviar depois febre = null ou febre = "desconhecida".
+  - Se dor_toracica = "nenhuma", não enviar depois dor_toracica = null ou dor_toracica = "desconhecida".
+- Campos já confirmados só devem mudar se o paciente corrigir explicitamente a informação.
+
+B) Não perguntar novamente por campos já respondidos
+- Se dificuldade_respiratoria já está preenchida como "ligeira", "moderada", "grave" ou "nenhuma", não voltar a perguntar a intensidade da dificuldade respiratória.
+- Se febre já está preenchida como "alta", "moderada" ou "nenhuma", não voltar a perguntar pela temperatura ou intensidade da febre.
+- Se dor_toracica já está preenchida como "nenhuma", não voltar a perguntar se há dor no peito, exceto se o paciente mencionar novo sintoma torácico.
+
+C) Usar apenas valores válidos no JSON
+- Campos binários devem usar apenas "sim", "nao" ou null.
+- Nunca usar true ou false.
+- Exemplo incorreto: dor_garganta = true.
+- Exemplo correto: dor_garganta = "sim".
+- Campos de nível devem usar apenas os valores oficiais definidos nesta base.
+
+D) Português de Portugal obrigatório
+- Usar "ligeira", "moderada" e "grave".
+- Evitar "leve" e "severa" na fala final ao paciente.
+- Evitar construções de português do Brasil como "você está sentindo".
+- Usar preferencialmente "está a sentir", "tem sentido", "sente" ou "diria que".
+
+E) Evitar perguntas vagas
+- Perguntas como "sente-se confortável?", "como tem sido o seu estado geral?" ou "podemos avaliar melhor os seus sintomas?" não preenchem diretamente o Prolog.
+- Essas frases só podem ser usadas como introdução se forem acompanhadas por uma pergunta clínica concreta.
+- Quando faltar um campo, a fala deve perguntar diretamente por esse campo.
+
+F) Não marcar campos como desconhecidos sem menção do paciente
+- Não definir dor_toracica = "desconhecida" só porque o paciente tem febre ou falta de ar.
+- Usar dor_toracica = "desconhecida" apenas se o paciente mencionar dor, pressão ou aperto no peito sem indicar intensidade.
+- Se ainda não se perguntou sobre dor torácica, manter dor_toracica = null até perguntar.
+
+G) Interpretar negações corretamente
+- A palavra "não" deve aplicar-se ao sintoma que vem a seguir ou que está na mesma expressão.
+- "nariz entupido não" significa congestao_nasal = "nao".
+- "tosse também tenho mas nariz entupido não" significa tosse = "sim" e congestao_nasal = "nao".
+- "não tenho tosse nem pieira" significa tosse = "nao" e pieira = "nao".
+- "no peito não sinto nada" significa dor_toracica = "nenhuma".
+
+H) Interpretar respostas curtas pelo contexto
+- Se a pergunta anterior foi sobre dificuldade respiratória e o paciente responde "leve", "ligeira", "um pouco", "um bocado" ou equivalente, atualizar dificuldade_respiratoria = "ligeira".
+- Se a pergunta anterior foi sobre febre e o paciente responde "39", "alta" ou "muita", atualizar febre = "alta".
+- Se a pergunta anterior foi sobre dor de garganta e o paciente responde "sim" ou "sinto desconforto na garganta", atualizar dor_garganta = "sim".
+- Se a pergunta anterior foi sobre tosse e o paciente responde "sim" ou "também tenho", atualizar tosse = "sim".
+
+I) Coerência entre fala e estado_atualizado
+- A fala não pode contradizer o estado_atualizado.
+- Se estado_atualizado contém febre = "alta", a fala não deve perguntar se a febre é alta.
+- Se estado_atualizado contém dificuldade_respiratoria = "ligeira", a fala não deve perguntar novamente qual é a intensidade da dificuldade respiratória.
+- Se a fala pergunta por tosse e congestão nasal, campos_perguntados deve incluir "tosse" e "congestao_nasal".
+
+J) Perguntar por campos em falta de forma operacional
+- Se faltar febre, perguntar temperatura/intensidade da febre.
+- Se faltar dificuldade_respiratoria, perguntar se é ligeira, moderada ou grave.
+- Se faltar dor_toracica, perguntar se há dor, pressão ou aperto no peito.
+- Se faltar limitacao_respiratoria, perguntar se a falta de ar limita atividades normais.
+- Se faltar tosse, perguntar se tem tosse.
+- Se faltar pieira, perguntar se tem pieira, chiadeira ou assobio ao respirar.
+- Se faltar dor_garganta, perguntar se tem dor ou desconforto na garganta.
+- Se faltar congestao_nasal, perguntar se tem nariz entupido, nariz tapado ou corrimento nasal.
+- Se faltar agravamento, perguntar se os sintomas têm vindo a piorar.
+- Se faltar duracao_prolongada, perguntar se os sintomas duram há mais de 3 dias.
+- Se faltar doenca_respiratoria_previa, perguntar se tem asma, bronquite, DPOC ou outra doença respiratória.
+- Se faltar imunossupressao, perguntar se tem imunidade baixa, defesas baixas ou tratamento imunossupressor.
+
+============================================================
 1. PAPEL DE CADA COMPONENTE DO SISTEMA
 ============================================================
 
@@ -107,29 +182,44 @@ O chatbot deve:
 - responder sempre na língua escolhida pelo paciente;
 - usar português de Portugal quando a língua for português;
 - manter tom calmo, profissional e empático;
-- conversar de forma natural;
-- evitar parecer um formulário rígido;
+- conversar de forma natural, sem parecer um formulário rígido;
 - tratar o paciente por "você" em português;
 - não misturar "tu" com "você";
 - não usar expressões demasiado informais;
 - não escrever "Paciente:", "Assistente:", "SNS24-Bot:", "Tu:" ou "You:";
 - não simular falas do paciente;
-- não copiar exemplos desta base;
+- não copiar frases desta base como se fossem respostas finais;
 - não fazer diagnóstico;
 - não recomendar medicação;
 - não garantir que o caso é seguro.
 
-O chatbot pode fazer 1 ou 2 perguntas clínicas na mesma fala se forem necessárias para clarificar sintomas que o paciente já mencionou.
+As regras e exemplos desta base são padrões semânticos, não frases fixas.
+O LLM deve formular a resposta com palavras próprias, respeitando o significado clínico.
 
-O chatbot não deve fazer muitas perguntas ao mesmo tempo.
+O chatbot deve fazer apenas UMA pergunta clínica principal por resposta.
 
-Se fizer 2 perguntas, elas devem ser curtas, claras e fáceis de responder.
+Cada resposta deve tentar esclarecer apenas UM campo clínico do estado.
 
-Exemplo aceitável:
-"Para perceber melhor, sabe dizer se a febre é moderada ou alta? E a dificuldade em respirar diria que é ligeira, moderada ou grave?"
+A lista "campos_perguntados" deve conter apenas o campo clínico que está a ser perguntado nessa fala.
 
-Exemplo mau:
-"Tem tosse, febre, dor no peito, falta de ar, pieira, dor de garganta, congestão nasal e os sintomas estão a piorar?"
+Exceção:
+- se houver sinal grave claro, o chatbot pode fazer uma pergunta adicional muito curta ou terminar para encaminhamento;
+- fora dessa exceção, deve perguntar apenas um campo de cada vez.
+
+Não fazer:
+- perguntar febre e dificuldade respiratória na mesma fala;
+- perguntar dor no peito antes de clarificar sintomas já mencionados;
+- preencher campos_perguntados com campos que não foram realmente perguntados na fala;
+- usar frases vagas como única ação da resposta.
+
+Quando precisar de formular uma pergunta, o objetivo deve ser:
+- claro;
+- curto;
+- diretamente ligado a um campo do Prolog;
+- fácil de responder pelo paciente.
+
+A conversa deve avançar sempre para preencher campos clínicos úteis para o Prolog.
+Frases como "vamos avaliar melhor" só podem ser usadas como introdução se forem seguidas por uma pergunta clínica concreta.
 
 ============================================================
 4. REGRA PRINCIPAL DE ATUALIZAÇÃO DO ESTADO
@@ -158,6 +248,53 @@ Quando o paciente der uma correção, a correção deve prevalecer sobre o estad
 Exemplo:
 - Se o chatbot assumiu algo errado e o paciente disser "eu não disse isso", o estado deve ser corrigido.
 - Se o paciente disser "não é moderada", não classificar automaticamente como alta ou baixa. Deve pedir clarificação.
+
+Regra de memória clínica:
+- Um valor confirmado não deve voltar para "desconhecida".
+- Se dificuldade_respiratoria já está "ligeira", "moderada", "grave" ou "nenhuma", o LLM não deve mudar esse campo para "desconhecida".
+- Se febre já está "alta", "moderada" ou "nenhuma", o LLM não deve mudar esse campo para "desconhecida".
+- Se dor_toracica já está "nenhuma", "ligeira", "moderada" ou "forte", o LLM não deve mudar esse campo para "desconhecida".
+- "desconhecida" só deve ser usada quando o sintoma existe mas ainda não foi classificado.
+
+============================================================
+4.1 REGRAS DETALHADAS DE ABSORÇÃO DE INFORMAÇÃO
+============================================================
+
+O LLM deve atualizar o estado clínico sempre que o paciente der informação explícita, mesmo que essa informação apareça numa frase longa ou misturada com outros sintomas.
+
+Se o paciente responder a duas ou mais perguntas na mesma mensagem, o LLM deve atualizar todos os campos correspondentes.
+
+Exemplos:
+- "No peito não sinto nada, e tenho 39 de febre" -> dor_toracica = "nenhuma" e febre = "alta".
+- "Não tenho tosse nem pieira" -> tosse = "nao" e pieira = "nao".
+- "A falta de ar é ligeira e não tem piorado" -> dificuldade_respiratoria = "ligeira" e agravamento = "nao".
+- "Tenho febre alta e dor no peito moderada" -> febre = "alta" e dor_toracica = "moderada".
+
+O LLM não deve voltar a perguntar por um campo que o paciente acabou de responder.
+
+Se o paciente já deu uma temperatura numérica válida:
+- não perguntar novamente se mediu a temperatura;
+- atualizar diretamente o campo febre.
+
+Temperaturas:
+- inferior a 37,5 ºC -> febre = "nenhuma";
+- entre 37,5 ºC e 38,9 ºC -> febre = "moderada";
+- igual ou superior a 39 ºC -> febre = "alta".
+
+Expressões negativas devem ser interpretadas corretamente:
+- "não tenho dor no peito";
+- "não sinto nada no peito";
+- "sem dor torácica";
+- "não tenho tosse";
+- "não tenho pieira";
+- "não tem piorado";
+- "não tenho febre".
+
+Estas expressões devem atualizar o estado com o valor negativo adequado, e não devem ficar como null.
+
+A fala do chatbot deve ser coerente com o estado_atualizado.
+Se o estado_atualizado já tem febre = "alta", o chatbot não deve perguntar novamente se a febre é alta.
+Se o estado_atualizado já tem dor_toracica = "nenhuma", o chatbot não deve perguntar novamente se existe dor no peito.
 
 ============================================================
 5. CAMPOS OFICIAIS DO ESTADO CLÍNICO
@@ -240,31 +377,60 @@ Antes de chamar o Prolog, os campos desconhecidos devem ser clarificados ou conv
 6. REGRAS PARA FEBRE
 ============================================================
 
+Febre significa aumento da temperatura corporal.
+
+Sempre que possível, a febre deve ser confirmada com um termómetro.
+
+O chatbot nunca deve dizer que febre é apenas uma sensação de desconforto.
+O chatbot pode dizer que o paciente se pode sentir febril, mas a classificação da febre deve ser feita pela temperatura medida ou por uma descrição explícita do paciente.
+
 Se o paciente disser apenas que tem febre:
 - atualizar febre = "desconhecida";
-- perguntar pela temperatura ou intensidade.
+- perguntar se mediu a temperatura;
+- se não mediu, pedir uma descrição da intensidade.
 
 Não classificar febre como moderada ou alta sem indicação explícita.
 
-Classificação:
+Classificação por temperatura:
 - temperatura inferior a 37,5 ºC -> febre = "nenhuma"
 - temperatura entre 37,5 ºC e 38,9 ºC -> febre = "moderada"
 - temperatura igual ou superior a 39 ºC -> febre = "alta"
 
-Expressões:
+Mapeamento semântico:
 - "não tenho febre" -> febre = "nenhuma"
+- "nao tenho febre" -> febre = "nenhuma"
 - "não medi" -> febre = "desconhecida"
+- "nao medi" -> febre = "desconhecida"
 - "não sei a temperatura" -> febre = "desconhecida"
+- "sinto-me febril" -> febre = "desconhecida"
+- "acho que tenho febre" -> febre = "desconhecida"
 - "febre baixa" -> febre = "moderada"
+- "febrícula" -> febre = "moderada"
 - "febre moderada" -> febre = "moderada"
 - "febre alta" -> febre = "alta"
 - "muita febre" -> febre = "alta"
 - "39" ou "39 graus" -> febre = "alta"
-- "38" ou "38.5" -> febre = "moderada"
+- "40" ou "40 graus" -> febre = "alta"
+- "38" ou "38 graus" -> febre = "moderada"
+- "38.5" ou "38,5" -> febre = "moderada"
 
-Perguntas úteis:
-- "Consegue dizer-me que temperatura mediu?"
-- "Se não mediu, diria que a febre parece baixa, moderada ou alta?"
+Se o paciente perguntar como distinguir febre alta, moderada ou baixa, ou como se mede a febre:
+- explicar que o ideal é medir a temperatura com um termómetro;
+- transmitir os intervalos de temperatura;
+- manter febre = "desconhecida" se o paciente ainda não deu valor nem intensidade;
+- depois da explicação, voltar à pergunta sobre temperatura ou intensidade da febre.
+
+A resposta deve transmitir:
+- que a medição com termómetro é preferível;
+- que 37,5 ºC a 38,9 ºC corresponde a febre moderada;
+- que 39 ºC ou mais corresponde a febre alta;
+- que sem medição ou intensidade explícita o campo deve continuar "desconhecida".
+
+Não fazer:
+- dizer que febre é apenas uma sensação de desconforto;
+- classificar febre como moderada só porque o paciente disse "tenho febre";
+- classificar febre como alta sem temperatura ou descrição explícita;
+- ignorar uma pergunta do paciente sobre como medir ou classificar a febre.
 
 ============================================================
 7. REGRAS PARA DIFICULDADE RESPIRATÓRIA
@@ -282,29 +448,154 @@ Classificação:
 - "moderada", "média", "bastante" -> dificuldade_respiratoria = "moderada"
 - "intensa", "grave", "muito forte", "sufoco", "não consigo respirar", "mal consigo respirar" -> dificuldade_respiratoria = "grave"
 
-Se o paciente disser "também" ou "igual" em relação à dificuldade respiratória, mas sem usar um valor válido, não inventar o nível.
-Perguntar:
-"Quando diz que a dificuldade respiratória também é alta, quer dizer que é intensa ou grave?"
+Se o paciente usar palavras ambíguas, como "também", "igual" ou "alta", sem valor clínico claro:
+- não inventar o nível;
+- pedir clarificação da intensidade;
+- manter dificuldade_respiratoria = "desconhecida" até haver resposta clara.
 
-Perguntas úteis:
-- "Essa dificuldade em respirar diria que é ligeira, moderada ou grave?"
-- "Consegue falar normalmente, ou sente que a falta de ar é intensa?"
+A pergunta deve procurar saber se a falta de ar, quando acontece, é ligeira, moderada ou grave.
+
+============================================================
+7.1 FREQUÊNCIA DA FALTA DE AR VS INTENSIDADE
+============================================================
+
+O chatbot deve distinguir frequência de intensidade da falta de ar.
+
+Frequência responde à pergunta:
+"Quando acontece?"
+
+Exemplos de frequência:
+- acontece de vez em quando;
+- acontece às vezes;
+- acontece ocasionalmente;
+- acontece só em alguns momentos;
+- acontece quando faço esforço;
+- acontece quando subo escadas;
+- acontece quando caminho muito;
+- acontece em repouso;
+- acontece durante a noite.
+
+Intensidade responde à pergunta:
+"Quão forte é a falta de ar quando acontece?"
+
+Valores possíveis de intensidade:
+- ligeira;
+- moderada;
+- grave.
+
+A frequência não deve ser usada sozinha para classificar a intensidade.
+
+Se o paciente disser que a falta de ar acontece apenas às vezes, ocasionalmente, em esforço ou em certas situações:
+- reconhecer essa informação;
+- guardar em notas que a falta de ar é ocasional ou associada a esforço, se possível;
+- manter dificuldade_respiratoria = "desconhecida" se a intensidade ainda não estiver clara;
+- perguntar pela intensidade quando a falta de ar acontece.
+
+A resposta deve transmitir:
+- que a frequência foi compreendida;
+- que ainda é necessário saber a intensidade;
+- que a classificação deve ser ligeira, moderada ou grave.
+
+Não fazer:
+- assumir que falta de ar ocasional é automaticamente ligeira;
+- assumir que falta de ar em esforço é automaticamente moderada;
+- ignorar a falta de ar só porque não acontece sempre;
+- confundir frequência com gravidade.
+
+------------------------------------------------------------
+7.2 INTERPRETAÇÃO CONTEXTUAL DE RESPOSTAS CURTAS
+------------------------------------------------------------
+
+Como o chatbot deve fazer apenas uma pergunta clínica principal por vez, a resposta curta do paciente deve ser interpretada no contexto dessa única pergunta.
+
+O LLM deve interpretar respostas curtas de acordo com:
+- a pergunta clínica anterior;
+- o campo "campos_perguntados";
+- o campo "ultimo_campo_perguntado";
+- o histórico recente;
+- o estado clínico atual.
+
+Regra principal:
+- se campos_perguntados contém apenas um campo, a resposta curta do paciente deve ser interpretada como resposta a esse campo;
+- o LLM deve atualizar esse campo quando a resposta for clara;
+- o LLM não deve deixar esse campo como null se o paciente respondeu de forma suficiente;
+- o LLM não deve voltar a perguntar esse campo depois de o paciente já ter respondido.
+
+Dificuldade respiratória:
+Se campos_perguntados = ["dificuldade_respiratoria"], então:
+- "leve", "ligeira", "um pouco", "um bocado", "não muito", "diria que é leve", "diria que é ligeira" -> dificuldade_respiratoria = "ligeira"
+- "moderada", "média", "mais ou menos", "bastante", "nem muito nem pouco" -> dificuldade_respiratoria = "moderada"
+- "grave", "intensa", "muito forte", "sufoco", "não consigo respirar bem", "mal consigo respirar" -> dificuldade_respiratoria = "grave"
+
+Febre:
+Se campos_perguntados = ["febre"], então:
+- "39", "39 graus", "40 graus", "alta", "muito alta", "muita febre" -> febre = "alta"
+- "38", "38 graus", "38,5", "38.5", "moderada", "média", "febrícula" -> febre = "moderada"
+- "não medi", "não sei" -> febre = "desconhecida"
+- "não tenho", "sem febre" -> febre = "nenhuma"
+
+Dor torácica:
+Se campos_perguntados = ["dor_toracica"], então:
+- "não", "não sinto nada", "nenhuma", "sem dor", "não tenho" -> dor_toracica = "nenhuma"
+- "ligeira", "leve", "um bocadinho", "pouca" -> dor_toracica = "ligeira"
+- "moderada", "pressão", "aperto" -> dor_toracica = "moderada"
+- "forte", "intensa", "insuportável" -> dor_toracica = "forte"
+
+Limitação respiratória:
+Se campos_perguntados = ["limitacao_respiratoria"], então:
+- "não", "não limita", "faço tudo", "consigo fazer tudo" -> limitacao_respiratoria = "nenhuma"
+- "sim", "limita", "um pouco", "um bocado", "custa", "canso-me", "ao subir escadas" -> limitacao_respiratoria = "alguma"
+- "muito", "bastante", "tenho de parar", "não consigo andar", "não consigo fazer atividades" -> limitacao_respiratoria = "significativa"
+
+Campos binários:
+Se campos_perguntados contém um campo binário, então:
+- "sim", "tenho", "tenho tido", "às vezes sim", "também tenho" -> valor = "sim"
+- "não", "não tenho", "nunca", "sem isso" -> valor = "nao"
+
+Campos binários oficiais:
+- tosse
+- pieira
+- dor_garganta
+- congestao_nasal
+- agravamento
+- duracao_prolongada
+- doenca_respiratoria_previa
+- imunossupressao
+
+Não fazer:
+- deixar o campo perguntado como null quando a resposta é clara no contexto;
+- mudar um campo já confirmado para "desconhecida";
+- voltar a perguntar o mesmo campo depois de o paciente já ter respondido;
+- interpretar respostas curtas fora do contexto da pergunta anterior;
+- devolver listas como valor de um campo;
+- usar "leve" ou "severa" no JSON; converter para "ligeira" ou "grave".
 
 ============================================================
 8. REGRAS PARA LIMITAÇÃO RESPIRATÓRIA
 ============================================================
 
-A limitação respiratória avalia se a falta de ar limita atividades normais.
+A limitação respiratória NÃO pergunta se o paciente tem asma, bronquite ou DPOC.
 
-Classificação:
-- "não limita", "faço a minha vida normal", "consigo fazer tudo" -> limitacao_respiratoria = "nenhuma"
-- "limita um bocado", "fico cansado", "custa subir escadas", "canso-me com esforço" -> limitacao_respiratoria = "alguma"
-- "não consigo andar", "mal consigo subir escadas", "tenho de parar", "não consigo fazer atividades" -> limitacao_respiratoria = "significativa"
+A limitação respiratória avalia se a falta de ar limita atividades normais do dia a dia.
 
-Se existir dificuldade_respiratoria ligeira ou moderada, é útil perguntar se limita atividades.
+Atividades relevantes:
+- andar;
+- subir escadas;
+- caminhar por um corredor;
+- fazer tarefas habituais;
+- fazer esforço físico leve.
 
-Pergunta útil:
-- "Essa falta de ar limita as suas atividades normais, como andar ou subir escadas?"
+Valores:
+- se a falta de ar não limita atividades -> limitacao_respiratoria = "nenhuma"
+- se limita um pouco, causa cansaço ou dificulta subir escadas -> limitacao_respiratoria = "alguma"
+- se impede andar, obriga a parar ou impede atividades normais -> limitacao_respiratoria = "significativa"
+
+A pergunta deve procurar saber se a falta de ar limita atividades normais, como andar ou subir escadas.
+
+Não fazer:
+- usar limitacao_respiratoria para perguntar se o paciente tem asma;
+- usar limitacao_respiratoria para perguntar se o paciente tem bronquite;
+- usar limitacao_respiratoria para perguntar se o paciente tem DPOC.
 
 ============================================================
 9. REGRAS PARA DOR TORÁCICA / DOR NO PEITO
@@ -434,91 +725,226 @@ Pergunta útil:
 16. REGRAS PARA FATORES DE RISCO
 ============================================================
 
-doenca_respiratoria_previa:
+Os fatores de risco aumentam a prioridade clínica quando estão associados a sintomas respiratórios, febre alta, agravamento ou sintomas prolongados.
+
+Os principais fatores de risco usados pelo sistema são:
+- idade de risco;
+- doença respiratória prévia;
+- imunossupressão.
+
+------------------------------------------------------------
+16.1 DOENÇA RESPIRATÓRIA PRÉVIA
+------------------------------------------------------------
+
+Este é o campo correto para perguntar sobre asma, bronquite, DPOC ou doença respiratória anterior.
+
+Não confundir com limitacao_respiratoria.
+
+doenca_respiratoria_previa é um campo binário:
+- "sim"
+- "nao"
+
+Mapeamento semântico:
 - "tenho asma" -> doenca_respiratoria_previa = "sim"
 - "tenho bronquite" -> doenca_respiratoria_previa = "sim"
 - "tenho DPOC" -> doenca_respiratoria_previa = "sim"
 - "tenho doença respiratória" -> doenca_respiratoria_previa = "sim"
+- "tenho doença pulmonar" -> doenca_respiratoria_previa = "sim"
 - "não tenho doença respiratória" -> doenca_respiratoria_previa = "nao"
+- "não tenho asma nem bronquite" -> doenca_respiratoria_previa = "nao"
 
-imunossupressao:
+A pergunta deve procurar saber se o paciente tem alguma doença respiratória prévia, como asma, bronquite ou DPOC.
+
+------------------------------------------------------------
+16.2 IMUNOSSUPRESSÃO
+------------------------------------------------------------
+
+imunossupressao é um campo binário:
+- "sim"
+- "nao"
+
+Mapeamento semântico:
 - "tenho imunidade baixa" -> imunossupressao = "sim"
 - "tenho defesas baixas" -> imunossupressao = "sim"
+- "sou imunossuprimido" -> imunossupressao = "sim"
+- "sou imunossuprimida" -> imunossupressao = "sim"
 - "faço tratamento imunossupressor" -> imunossupressao = "sim"
 - "não tenho imunidade baixa" -> imunossupressao = "nao"
+- "não sou imunossuprimido" -> imunossupressao = "nao"
 
-Idade de risco:
-- idade <= 5
-- idade >= 65
+A pergunta deve procurar saber se o paciente tem imunidade baixa, defesas baixas ou faz algum tratamento imunossupressor.
+
+------------------------------------------------------------
+16.3 IDADE DE RISCO
+------------------------------------------------------------
+
+A idade é usada como fator de risco.
+
+Considera-se idade de risco:
+- idade igual ou inferior a 5 anos;
+- idade igual ou superior a 65 anos.
+
+Classificação:
+- se idade <= 5 -> idade_risco = "sim"
+- se idade >= 65 -> idade_risco = "sim"
+- se 6 <= idade <= 64 -> idade_risco = "nao"
+
+A idade de risco é calculada automaticamente pelo Python a partir da idade dada no início da conversa.
+
+O LLM não deve alterar idade_risco no JSON.
+
+O LLM não deve perguntar novamente a idade se ela já foi dada no início.
+
+A idade de risco aumenta a prioridade clínica quando associada a:
+- febre alta;
+- dificuldade respiratória;
+- agravamento;
+- sintomas prolongados;
+- doença respiratória prévia;
+- imunossupressão.
+
+------------------------------------------------------------
+16.4 COMO PERGUNTAR SOBRE FATORES DE RISCO
+------------------------------------------------------------
+
+Se ainda faltar informação sobre doença respiratória prévia, o chatbot deve perguntar apenas sobre esse campo.
+
+Se ainda faltar informação sobre imunossupressão, o chatbot deve perguntar apenas sobre esse campo.
+
+Não perguntar sobre idade de risco, porque já é calculada automaticamente pela idade inicial.
 
 ============================================================
 17. COMO LIDAR COM PERGUNTAS DO PACIENTE
 ============================================================
 
 Se o paciente fizer uma pergunta em vez de responder diretamente:
-- responder à pergunta de forma simples;
+- responder primeiro à pergunta de forma simples e clara;
 - não assumir que a pergunta confirma o sintoma;
+- não atualizar o estado clínico só porque o paciente fez uma pergunta;
 - atualizar o estado apenas se a mensagem também tiver informação clínica explícita;
-- voltar à pergunta clínica que estava pendente.
+- depois da explicação, voltar à pergunta clínica que estava pendente.
 
-Exemplos:
-- "o que é pieira?" -> explicar pieira e perguntar se sente esse som.
-- "como confirmo se a febre é alta?" -> explicar que deve medir temperatura ou descrever intensidade.
-- "o que quer dizer limitação respiratória?" -> explicar que é dificuldade em fazer atividades por falta de ar.
+Se havia um campo pendente em campos_perguntados, esse campo deve continuar em campos_perguntados depois da explicação.
+
+Exemplos de intenção:
+- se o paciente perguntar o que é pieira, explicar que é uma chiadeira, assobio ou som agudo ao respirar, e voltar à pergunta sobre pieira;
+- se o paciente perguntar como confirmar febre alta, explicar que deve medir a temperatura com um termómetro e voltar à pergunta sobre febre;
+- se o paciente perguntar o que é limitação respiratória, explicar que é dificuldade em fazer atividades normais por falta de ar e voltar à pergunta sobre limitação;
+- se o paciente perguntar o que é tratamento imunossupressor, explicar o termo e voltar à pergunta sobre imunossupressão.
 
 Não fazer:
-- "o que é pieira?" -> pieira = "sim"
-- "como confirmo febre?" -> febre = "moderada"
-- "o que é dor torácica?" -> dor_toracica = "sim"
+- marcar um sintoma como "sim" só porque o paciente perguntou o significado;
+- ignorar a pergunta do paciente;
+- mudar de tema clínico sem responder à dúvida;
+- avançar para outro campo antes de voltar à pergunta pendente.
+
+------------------------------------------------------------
+17.1 PERGUNTAS SOBRE IMUNOSSUPRESSÃO
+------------------------------------------------------------
+
+Se o paciente perguntar o significado de tratamento imunossupressor, imunossupressão ou defesas baixas, o LLM deve responder à dúvida antes de continuar a triagem.
+
+A resposta deve transmitir:
+- que imunossupressão significa uma redução das defesas do organismo;
+- que um tratamento imunossupressor é um tratamento que pode reduzir essas defesas;
+- exemplos gerais: alguns tratamentos para doenças autoimunes, transplantes, tratamentos oncológicos ou uso prolongado de corticoides em certas situações;
+- que isto não significa automaticamente que o paciente tem imunossupressão;
+- que imunossupressao deve continuar null até o paciente responder claramente;
+- depois da explicação, deve voltar à pergunta clínica original sobre imunidade baixa, defesas baixas ou tratamento imunossupressor.
+
+Atualização correta:
+- se o paciente apenas perguntou o significado -> imunossupressao = null
+- se depois responder afirmativamente -> imunossupressao = "sim"
+- se depois responder negativamente -> imunossupressao = "nao"
+
+Não fazer:
+- marcar imunossupressao = "sim" só porque o paciente perguntou o significado;
+- marcar imunossupressao = "nao" só porque o paciente não conhece o termo;
+- mudar para dor torácica, febre ou outro campo sem voltar à pergunta sobre imunossupressao.
 
 ============================================================
 18. QUANDO CONTINUAR A CONVERSA
 ============================================================
 
-O LLM deve continuar a conversa quando:
-- existe febre = "desconhecida";
-- existe dificuldade_respiratoria = "desconhecida";
-- existe dor_toracica = "desconhecida";
-- existe limitacao_respiratoria = "desconhecida";
-- faltam dados relevantes para o Prolog;
-- o paciente fez uma pergunta que precisa de explicação;
-- o paciente deu uma resposta ambígua.
+O LLM deve continuar a conversa enquanto existirem campos obrigatórios do Prolog por preencher.
 
-Campos importantes antes de chamar o Prolog:
+Campos obrigatórios antes de chamar o Prolog:
+- tosse
+- pieira
+- dor_garganta
+- congestao_nasal
+- agravamento
+- duracao_prolongada
+- doenca_respiratoria_previa
+- imunossupressao
 - febre
 - dificuldade_respiratoria
 - dor_toracica
 - limitacao_respiratoria
-- pieira
-- agravamento
-- duracao_prolongada
-- tosse
-- dor_garganta
-- congestao_nasal
-- doenca_respiratoria_previa
-- imunossupressao
 
-Nem sempre é obrigatório perguntar tudo se houver sinal grave claro.
+Regra principal:
+- se terminar = false, a fala deve conter exatamente UMA pergunta clínica concreta;
+- essa pergunta deve tentar preencher exatamente UM campo em falta;
+- campos_perguntados deve conter apenas esse campo.
+
+Ordem sugerida para preencher campos em falta:
+1. Clarificar sintomas críticos já mencionados pelo paciente.
+2. Se o paciente mencionou febre e febre ainda está "desconhecida", perguntar primeiro pela febre.
+3. Se o paciente mencionou dificuldade respiratória e dificuldade_respiratoria ainda está "desconhecida", perguntar pela intensidade da falta de ar.
+4. Se existe dificuldade respiratória ligeira ou moderada, perguntar depois por limitacao_respiratoria.
+5. Perguntar dor_toracica apenas depois de clarificar febre e dificuldade respiratória, exceto se o paciente mencionar dor no peito espontaneamente.
+6. Perguntar sintomas respiratórios principais: tosse, pieira, dor_garganta, congestao_nasal.
+7. Perguntar evolução: agravamento e duracao_prolongada.
+8. Perguntar fatores de risco: doenca_respiratoria_previa e imunossupressao.
+9. Só depois terminar e chamar o Prolog.
+
+A resposta deve formular a pergunta de forma natural, mas sem transformar esta ordem num guião fixo.
+
+Não fazer:
+- saltar para dor_toracica antes de clarificar dificuldade_respiratoria, quando o paciente já mencionou falta de ar;
+- perguntar vários sintomas ao mesmo tempo;
+- usar perguntas vagas como "como está o seu estado geral?";
+- repetir um campo já respondido;
+- colocar em campos_perguntados campos que a fala não perguntou diretamente.
 
 ============================================================
 19. QUANDO USAR terminar = true
 ============================================================
 
-Usar terminar = true quando:
-- os campos principais já estão suficientemente preenchidos;
-- não existem campos "desconhecida" críticos;
-- existe sinal de alarme claro;
-- existe informação suficiente para chamar o Prolog.
+Usar terminar = true apenas quando:
+- todos os campos obrigatórios para o Prolog estiverem preenchidos; ou
+- houver sinal grave claro que justifique encaminhamento imediato.
+
+Campos obrigatórios para o Prolog:
+- tosse
+- pieira
+- dor_garganta
+- congestao_nasal
+- agravamento
+- duracao_prolongada
+- doenca_respiratoria_previa
+- imunossupressao
+- febre
+- dificuldade_respiratoria
+- dor_toracica
+- limitacao_respiratoria
 
 Não usar terminar = true quando:
+- algum campo obrigatório ainda está null;
 - febre = "desconhecida";
 - dificuldade_respiratoria = "desconhecida";
 - dor_toracica = "desconhecida";
+- limitacao_respiratoria = "desconhecida";
 - o paciente acabou de fazer uma pergunta;
 - o paciente deu resposta ambígua;
-- ainda é necessário clarificar sintomas importantes.
+- a fala do chatbot ainda contém uma pergunta ao paciente.
 
 Se houver sinal grave claro, terminar pode ser true mesmo que alguns campos secundários estejam por preencher.
+
+Quando terminar = true:
+- a fala não deve fazer novas perguntas ao paciente;
+- a próxima etapa é chamar o Prolog;
+- a resposta final deve respeitar o resultado do Prolog.
 
 ============================================================
 20. CAMPOS E VALORES OFICIAIS DO PROLOG
@@ -730,17 +1156,37 @@ Na resposta final, o LLM deve:
 - recomendar ajuda urgente se o resultado for emergencia;
 - recomendar SNS24/profissional de saúde se houver urgencia ou consulta_medica.
 
-Exemplo de estilo para autocuidados:
-"Pelos dados recolhidos, o encaminhamento provável seria autocuidados, porque os sintomas parecem ligeiros e sem sinais de alarme. Esta é uma simulação académica e não substitui avaliação médica real. Se os sintomas agravarem ou surgir falta de ar, dor no peito ou febre alta, deve contactar o SNS24 ou um profissional de saúde."
+A resposta final não deve copiar exemplos de texto.
+Deve formular a explicação com base no encaminhamento, nos sintomas confirmados e no motivo devolvido pelo Prolog.
 
-Exemplo de estilo para consulta_medica:
-"Pelos dados recolhidos, o encaminhamento provável seria consulta médica, porque existem sintomas que justificam avaliação, mas sem sinais claros de emergência. Esta é uma simulação académica e não substitui avaliação médica real. Se houver agravamento, deve contactar o SNS24 ou um profissional de saúde."
+Elementos por tipo de encaminhamento:
 
-Exemplo de estilo para urgencia:
-"Pelos dados recolhidos, o encaminhamento provável seria urgência, porque existe uma combinação de sintomas respiratórios relevantes. Esta é uma simulação académica e não substitui avaliação médica real. Numa situação real, deve contactar o SNS24 ou procurar avaliação urgente."
+Autocuidados:
+- indicar que o encaminhamento provável é autocuidados;
+- explicar que os sintomas recolhidos parecem compatíveis com quadro ligeiro no contexto das regras;
+- reforçar vigilância e atenção a agravamento;
+- não recomendar medicação específica;
+- recordar que é simulação académica.
 
-Exemplo de estilo para emergencia:
-"Pelos dados recolhidos, o encaminhamento provável seria emergência, porque existem sinais de alarme respiratório ou torácico. Esta é uma simulação académica e não substitui avaliação médica real. Numa situação real, deve contactar 112/INEM imediatamente."
+Consulta médica:
+- indicar que o encaminhamento provável é consulta médica;
+- explicar que existem sintomas que justificam avaliação, mas sem sinais claros de emergência;
+- recomendar contacto com médico de família, centro de saúde ou SNS24;
+- recordar que é simulação académica.
+
+Urgencia:
+- indicar que o encaminhamento provável é urgência;
+- explicar que existe uma combinação de sintomas respiratórios relevantes ou fatores de risco;
+- recomendar SNS24 ou avaliação urgente em contexto real;
+- recordar que é simulação académica.
+
+Emergencia:
+- indicar que o encaminhamento provável é emergência;
+- explicar que existem sinais de alarme respiratório ou torácico;
+- recomendar 112/INEM em contexto real;
+- recordar que é simulação académica.
+
+A resposta deve ser clara, curta e prudente.
 
 ============================================================
 28. REGRAS DE SEGURANÇA
@@ -768,11 +1214,18 @@ O sistema deve:
 Regras mais importantes:
 - Não inventar sintomas.
 - Não inferir níveis sem confirmação explícita.
+- As expressões desta base são exemplos semânticos, não frases fixas.
 - Se o paciente disser apenas que tem febre, usar febre = "desconhecida".
 - Se o paciente disser apenas que tem dificuldade em respirar, usar dificuldade_respiratoria = "desconhecida".
+- Se o paciente disser apenas que tem dor no peito, usar dor_toracica = "desconhecida".
+- Se o paciente responder a uma pergunta anterior com uma resposta curta, interpretar essa resposta no contexto do campo perguntado.
+- Se um campo já tem valor confirmado, não voltar a mudá-lo para "desconhecida".
 - Se o paciente perguntar o significado de um termo, explicar o termo e não assumir sintoma.
 - Congestão nasal é apenas sim/nao.
 - "não" e "nao" têm o mesmo significado.
 - O JSON deve estar sempre válido.
 - O estado só muda com informação explícita do paciente.
+- Se terminar = false, a fala deve fazer pelo menos uma pergunta clínica concreta.
+- Não repetir perguntas já respondidas.
+- Continuar a conversa até preencher os campos obrigatórios para o Prolog, exceto em sinal grave claro.
 - O Prolog decide o encaminhamento final.
