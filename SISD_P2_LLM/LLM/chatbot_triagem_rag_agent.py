@@ -3,6 +3,7 @@ import json
 import re
 import subprocess
 import requests
+import unicodedata
 
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -1418,10 +1419,425 @@ def aplicar_correcoes_explicitas_do_utilizador(estado, mensagem):
         estado["congestao_nasal"] = "sim"
 
     return estado
+
+# =========================================================
+# DETEÇÃO DE RESPOSTAS AMBÍGUAS / VAGAS
+# =========================================================
+def normalizar_texto(texto):
+    """
+    Normaliza texto para facilitar comparações:
+    - passa para minúsculas
+    - remove acentos
+    - remove espaços extra
+    """
+    if texto is None:
+        return ""
+
+    texto = str(texto).lower().strip()
+
+    texto = unicodedata.normalize("NFD", texto)
+    texto = "".join(
+        char for char in texto
+        if unicodedata.category(char) != "Mn"
+    )
+
+    texto = " ".join(texto.split())
+
+    return texto
+
+def resposta_ambigua_para_campo(mensagem, campo):
+    """
+    Deteta respostas vagas quando o chatbot está à espera de
+    um valor clínico específico.
+
+    Exemplo:
+    - Campo: dificuldade_respiratoria
+    - Resposta: "às vezes"
+    Neste caso, não se deve assumir ligeira/moderada/grave.
+    Deve-se pedir clarificação.
+    """
+
+    if not campo:
+        return False
+
+    texto = normalizar_texto(mensagem)
+
+    expressoes_vagas = [
+        "as vezes",
+        "às vezes",
+        "um bocado",
+        "um pouco",
+        "mais ou menos",
+        "nao sei",
+        "não sei",
+        "talvez",
+        "depende",
+        "so as vezes",
+        "só às vezes",
+        "de vez em quando",
+        "nem sempre"
+    ]
+
+    tem_expressao_vaga = any(expr in texto for expr in expressoes_vagas)
+
+    if not tem_expressao_vaga:
+        return False
+
+    # Campos que exigem uma intensidade/nível concreto
+    campos_com_niveis = {
+        "febre": ["nenhuma", "moderada", "alta", "37", "38", "39", "40"],
+        "dificuldade_respiratoria": ["nenhuma", "ligeira", "leve", "moderada", "grave"],
+        "dor_toracica": ["nenhuma", "ligeira", "leve", "moderada", "forte"],
+        "limitacao_respiratoria": ["nenhuma", "alguma", "significativa"]
+    }
+
+    if campo in campos_com_niveis:
+        valores_validos = campos_com_niveis[campo]
+        tem_valor_valido = any(valor in texto for valor in valores_validos)
+
+        # Se a resposta é vaga e não contém valor clínico válido, pedir clarificação
+        if not tem_valor_valido:
+            return True
+
+    # Campos binários: se for apenas vago e não tiver sim/não explícito, pedir clarificação
+    campos_binarios = [
+        "tosse",
+        "pieira",
+        "dor_garganta",
+        "congestao_nasal",
+        "agravamento",
+        "duracao_prolongada",
+        "doenca_respiratoria_previa",
+        "imunossupressao"
+    ]
+
+    if campo in campos_binarios:
+        tem_sim = any(expr in texto for expr in ["sim", "tenho", "sinto", "estou com"])
+        tem_nao = any(expr in texto for expr in ["nao", "não", "nunca", "sem"])
+
+        if not tem_sim and not tem_nao:
+            return True
+
+    return False
+
+
+def pergunta_clarificacao_para_campo(campo, idioma):
+    """
+    Gera uma pergunta de clarificação quando a resposta do utilizador
+    é demasiado vaga para atualizar o estado clínico.
+    """
+
+    pt = idioma == "português de Portugal"
+
+    perguntas_pt = {
+        "febre": (
+            "Percebo. Para conseguir registar corretamente, mediu a temperatura? "
+            "Se sim, quantos graus tinha? Se não mediu, diria que a febre é moderada ou alta?"
+        ),
+        "dificuldade_respiratoria": (
+            "Percebo. Mas em termos de intensidade, diria que a falta de ar é ligeira, moderada ou grave?"
+        ),
+        "dor_toracica": (
+            "Percebo. Em termos de intensidade, diria que a dor no peito é ligeira, moderada ou forte?"
+        ),
+        "limitacao_respiratoria": (
+            "Percebo. Essa falta de ar não limita as atividades, limita alguma coisa, "
+            "ou limita de forma significativa?"
+        ),
+        "tosse": "Para confirmar: tem tosse, sim ou não?",
+        "pieira": "Para confirmar: tem pieira, chiadeira ou assobio ao respirar, sim ou não?",
+        "dor_garganta": "Para confirmar: tem dor de garganta, sim ou não?",
+        "congestao_nasal": "Para confirmar: tem nariz entupido ou congestão nasal, sim ou não?",
+        "agravamento": "Para confirmar: os sintomas têm vindo a piorar, sim ou não?",
+        "duracao_prolongada": "Para confirmar: os sintomas duram há mais de 3 dias, sim ou não?",
+        "doenca_respiratoria_previa": (
+            "Para confirmar: tem alguma doença respiratória prévia, como asma, bronquite ou DPOC, sim ou não?"
+        ),
+        "imunossupressao": (
+            "Para confirmar: tem imunidade baixa, defesas baixas ou faz tratamento imunossupressor, sim ou não?"
+        )
+    }
+
+    perguntas_en = {
+        "febre": (
+            "I understand. To record this correctly, did you measure your temperature? "
+            "If so, what temperature was it? If not, would you say the fever is moderate or high?"
+        ),
+        "dificuldade_respiratoria": (
+            "I understand. In terms of intensity, would you say the shortness of breath is mild, moderate, or severe?"
+        ),
+        "dor_toracica": (
+            "I understand. In terms of intensity, would you say the chest pain is mild, moderate, or strong?"
+        ),
+        "limitacao_respiratoria": (
+            "I understand. Does the shortness of breath not limit activities, limit them somewhat, "
+            "or limit them significantly?"
+        ),
+        "tosse": "To confirm: do you have a cough, yes or no?",
+        "pieira": "To confirm: do you have wheezing or whistling when breathing, yes or no?",
+        "dor_garganta": "To confirm: do you have a sore throat, yes or no?",
+        "congestao_nasal": "To confirm: do you have a blocked or stuffy nose, yes or no?",
+        "agravamento": "To confirm: have the symptoms been getting worse, yes or no?",
+        "duracao_prolongada": "To confirm: have the symptoms lasted more than 3 days, yes or no?",
+        "doenca_respiratoria_previa": (
+            "To confirm: do you have any previous respiratory condition, such as asthma, bronchitis or COPD, yes or no?"
+        ),
+        "imunossupressao": (
+            "To confirm: do you have low immunity, reduced defenses or take immunosuppressive treatment, yes or no?"
+        )
+    }
+
+    if pt:
+        return perguntas_pt.get(campo, "Pode esclarecer melhor essa resposta?")
+    return perguntas_en.get(campo, "Could you clarify that answer?")
+
+def interpretar_resposta_por_campo_pendente(mensagem, campo):
+    """
+    Interpreta respostas do utilizador com base no campo que estava pendente.
+    Esta função dá prioridade ao contexto da pergunta, evitando erros do LLM.
+    """
+
+    texto = normalizar_texto(mensagem)
+
+        # Em alguns campos, certas expressões aparentemente vagas
+    # são clinicamente suficientes para preencher o valor.
+    if campo == "limitacao_respiratoria":
+        if any(x in texto for x in ["um pouco", "limita-me", "limita me", "fico cansado", "tenho de abrandar", "alguma"]):
+            return False
+
+    if campo == "dor_toracica":
+        if any(x in texto for x in ["moderada", "ligeira", "leve", "forte", "incomoda", "insuportavel", "insuportável"]):
+            return False
+
+    if campo == "dificuldade_respiratoria":
+        if any(x in texto for x in ["ligeira", "leve", "moderada", "grave"]):
+            return False
+
+    if not campo:
+        return {}
+
+    # -----------------------------
+    # Dificuldade respiratória
+    # -----------------------------
+    if campo == "dificuldade_respiratoria":
+        if any(x in texto for x in ["grave", "muito forte", "muita falta de ar", "nao consigo respirar"]):
+            return {"dificuldade_respiratoria": "grave"}
+        if any(x in texto for x in ["moderada", "media", "razoavel"]):
+            return {"dificuldade_respiratoria": "moderada"}
+        if any(x in texto for x in ["ligeira", "leve", "pouca", "um pouco"]):
+            return {"dificuldade_respiratoria": "ligeira"}
+        if any(x in texto for x in ["nao", "não", "sem falta de ar"]):
+            return {"dificuldade_respiratoria": "nenhuma"}
+
+    # -----------------------------
+    # Limitação respiratória
+    # -----------------------------
+    if campo == "limitacao_respiratoria":
+        if any(x in texto for x in ["significativa", "muito", "bastante", "nao consigo", "não consigo", "impede"]):
+            return {"limitacao_respiratoria": "significativa"}
+        if any(x in texto for x in ["alguma", "um pouco", "limita-me", "limita me", "fico cansado", "tenho de abrandar", "abrandar"]):
+            return {"limitacao_respiratoria": "alguma"}
+        if any(x in texto for x in ["nao limita", "não limita", "nenhuma", "consigo fazer tudo"]):
+            return {"limitacao_respiratoria": "nenhuma"}
+
+    # -----------------------------
+    # Dor torácica
+    # -----------------------------
+    if campo == "dor_toracica":
+        if any(x in texto for x in ["forte", "insuportavel", "insuportável", "aperto forte", "dor intensa"]):
+            return {"dor_toracica": "forte"}
+        if any(x in texto for x in ["moderada", "incomoda", "incomoda", "não é insuportável", "nao e insuportavel"]):
+            return {"dor_toracica": "moderada"}
+        if any(x in texto for x in ["ligeira", "leve", "fraca"]):
+            return {"dor_toracica": "moderada"}
+        if any(x in texto for x in ["nao", "não", "sem dor", "nenhuma"]):
+            return {"dor_toracica": "nenhuma"}
+
+    # -----------------------------
+    # Febre
+    # -----------------------------
+    if campo == "febre":
+        if any(x in texto for x in ["39", "40", "alta", "muito alta"]):
+            return {"febre": "alta"}
+        if any(x in texto for x in ["37", "38", "moderada", "baixa"]):
+            return {"febre": "moderada"}
+        if any(x in texto for x in ["nao", "não", "sem febre", "nenhuma"]):
+            return {"febre": "nenhuma"}
+
+    # -----------------------------
+    # Campos sim/não
+    # -----------------------------
+    campos_binarios = [
+        "tosse",
+        "pieira",
+        "dor_garganta",
+        "congestao_nasal",
+        "agravamento",
+        "duracao_prolongada",
+        "doenca_respiratoria_previa",
+        "imunossupressao"
+    ]
+
+    if campo in campos_binarios:
+        if any(x in texto for x in ["sim", "tenho", "sinto", "estou com", "piorou", "piorei"]):
+            return {campo: "sim"}
+        if any(x in texto for x in ["nao", "não", "nunca", "sem", "nao tenho", "não tenho"]):
+            return {campo: "nao"}
+
+    return {}
+
+# =========================================================
+# ESCLARECIMENTO DE CONCEITOS CLÍNICOS
+# =========================================================
+
+def utilizador_pediu_esclarecimento(mensagem):
+    """
+    Deteta se o utilizador está a pedir uma explicação sobre um conceito.
+    Exemplos:
+    - "o que é pieira?"
+    - "o que quer dizer imunossupressão?"
+    - "não percebi"
+    - "podes explicar?"
+    """
+
+    texto = normalizar_texto(mensagem)
+
+    padroes = [
+        "o que e",
+        "o que significa",
+        "que significa",
+        "quer dizer",
+        "nao percebi",
+        "nao entendi",
+        "podes explicar",
+        "pode explicar",
+        "explica",
+        "explicar melhor",
+        "o que quer dizer"
+    ]
+
+    return any(padrao in texto for padrao in padroes)
+
+
+def explicacao_campo_clinico(campo, idioma):
+    """
+    Devolve uma explicação curta para o campo clínico atualmente perguntado.
+    Depois da explicação, repete a pergunta original de forma objetiva.
+    """
+
+    pt = idioma == "português de Portugal"
+
+    explicacoes_pt = {
+        "pieira": (
+            "Pieira é uma chiadeira, assobio ou som agudo ao respirar, "
+            "normalmente sentido quando o ar passa com dificuldade."
+        ),
+        "dificuldade_respiratoria": (
+            "Dificuldade respiratória significa sentir falta de ar ou dificuldade em respirar. "
+            "Pode ser ligeira, moderada ou grave, conforme a intensidade."
+        ),
+        "limitacao_respiratoria": (
+            "Limitação respiratória significa que a falta de ar interfere com atividades normais, "
+            "como andar, subir escadas ou fazer pequenos esforços."
+        ),
+        "dor_toracica": (
+            "Dor torácica é dor, pressão, aperto ou desconforto na zona do peito. "
+            "Pode ser ligeira, moderada ou forte."
+        ),
+        "febre": (
+            "Febre corresponde a uma temperatura corporal elevada. "
+            "Neste sistema, interessa perceber se não tem febre, se é moderada ou se é alta."
+        ),
+        "tosse": (
+            "Tosse é a expulsão súbita de ar pelos pulmões. "
+            "Pode ser seca ou com expetoração, mas aqui basta confirmar se tem tosse."
+        ),
+        "dor_garganta": (
+            "Dor de garganta é dor, irritação ou ardor na garganta, especialmente ao engolir."
+        ),
+        "congestao_nasal": (
+            "Congestão nasal significa nariz entupido, dificuldade em respirar pelo nariz "
+            "ou sensação de obstrução nasal."
+        ),
+        "agravamento": (
+            "Agravamento significa que os sintomas pioraram desde que começaram, "
+            "por exemplo febre mais alta, mais falta de ar ou maior mal-estar."
+        ),
+        "duracao_prolongada": (
+            "Duração prolongada significa que os sintomas se mantêm há vários dias. "
+            "Neste sistema, pretende-se saber se duram há mais de 3 dias."
+        ),
+        "doenca_respiratoria_previa": (
+            "Doença respiratória prévia significa já ter uma condição respiratória conhecida, "
+            "como asma, bronquite crónica, DPOC ou outra doença dos pulmões."
+        ),
+        "imunossupressao": (
+            "Imunossupressão significa ter as defesas do organismo diminuídas, por doença "
+            "ou por medicamentos, como quimioterapia, corticóides prolongados ou imunossupressores."
+        )
+    }
+
+    repeticoes_pt = {
+        "pieira": "Para confirmar: tem sentido chiadeira ou assobio ao respirar?",
+        "dificuldade_respiratoria": "Em termos de intensidade, diria que a falta de ar é ligeira, moderada ou grave?",
+        "limitacao_respiratoria": "Essa falta de ar não limita atividades, limita alguma coisa, ou limita de forma significativa?",
+        "dor_toracica": "Em termos de intensidade, diria que a dor no peito é ligeira, moderada ou forte?",
+        "febre": "Mediu a temperatura? Se sim, quantos graus tinha? Se não mediu, diria que a febre é moderada ou alta?",
+        "tosse": "Para confirmar: tem tosse, sim ou não?",
+        "dor_garganta": "Para confirmar: tem dor de garganta, sim ou não?",
+        "congestao_nasal": "Para confirmar: tem nariz entupido ou congestão nasal, sim ou não?",
+        "agravamento": "Para confirmar: os sintomas têm vindo a piorar, sim ou não?",
+        "duracao_prolongada": "Para confirmar: os sintomas duram há mais de 3 dias, sim ou não?",
+        "doenca_respiratoria_previa": "Para confirmar: tem alguma doença respiratória prévia, sim ou não?",
+        "imunossupressao": "Para confirmar: tem imunidade baixa ou faz algum tratamento que baixe as defesas, sim ou não?"
+    }
+
+    explicacoes_en = {
+        "pieira": "Wheezing is a whistling or high-pitched sound when breathing.",
+        "dificuldade_respiratoria": "Shortness of breath means feeling difficulty breathing. It may be mild, moderate or severe.",
+        "limitacao_respiratoria": "Respiratory limitation means that shortness of breath limits normal activities.",
+        "dor_toracica": "Chest pain means pain, pressure, tightness or discomfort in the chest.",
+        "febre": "Fever means an elevated body temperature.",
+        "tosse": "Cough means a sudden expulsion of air from the lungs.",
+        "dor_garganta": "Sore throat means pain, irritation or burning in the throat.",
+        "congestao_nasal": "Nasal congestion means a blocked or stuffy nose.",
+        "agravamento": "Worsening means the symptoms have become more intense since they started.",
+        "duracao_prolongada": "Prolonged duration means the symptoms have lasted for several days.",
+        "doenca_respiratoria_previa": "Previous respiratory disease means a known condition such as asthma, chronic bronchitis or COPD.",
+        "imunossupressao": "Immunosuppression means having reduced immune defenses due to disease or medication."
+    }
+
+    repeticoes_en = {
+        "pieira": "To confirm: have you noticed wheezing or a whistling sound when breathing?",
+        "dificuldade_respiratoria": "In terms of intensity, would you say the shortness of breath is mild, moderate or severe?",
+        "limitacao_respiratoria": "Does the shortness of breath not limit activities, limit them somewhat, or limit them significantly?",
+        "dor_toracica": "In terms of intensity, would you say the chest pain is mild, moderate or strong?",
+        "febre": "Did you measure your temperature? If so, what temperature was it?",
+        "tosse": "To confirm: do you have a cough, yes or no?",
+        "dor_garganta": "To confirm: do you have a sore throat, yes or no?",
+        "congestao_nasal": "To confirm: do you have a blocked or stuffy nose, yes or no?",
+        "agravamento": "To confirm: have the symptoms been getting worse, yes or no?",
+        "duracao_prolongada": "To confirm: have the symptoms lasted more than 3 days, yes or no?",
+        "doenca_respiratoria_previa": "To confirm: do you have any previous respiratory disease, yes or no?",
+        "imunossupressao": "To confirm: do you have low immunity or take medication that lowers your defenses, yes or no?"
+    }
+
+    if pt:
+        explicacao = explicacoes_pt.get(campo)
+        repeticao = repeticoes_pt.get(campo)
+    else:
+        explicacao = explicacoes_en.get(campo)
+        repeticao = repeticoes_en.get(campo)
+
+    if explicacao and repeticao:
+        return f"{explicacao} {repeticao}"
+
+    if pt:
+        return "Posso esclarecer melhor. Pode responder à pergunta anterior de forma simples?"
+    return "I can clarify. Please answer the previous question simply."
 # =========================================================
 # FLUXO PRINCIPAL
 # =========================================================
-
 
 def main():
     vectorstore = carregar_ou_criar_rag()
@@ -1459,6 +1875,71 @@ def main():
 
         pergunta_pura = fez_pergunta and not respondeu_campo_pendente
 
+                # =====================================================
+        # 0. Detetar respostas vagas ao campo pendente
+        # =====================================================
+        # Se o utilizador responder de forma vaga a uma pergunta clínica,
+        # o sistema não atualiza o estado nem chama já o LLM.
+        # Pede primeiro uma clarificação objetiva.
+        if not pergunta_pura and ultimo_campo_perguntado:
+            campo_pendente = ultimo_campo_perguntado[0]
+
+            if resposta_ambigua_para_campo(mensagem, campo_pendente):
+                fala = pergunta_clarificacao_para_campo(campo_pendente, idioma)
+
+                print(f"\nSNS24-Bot: {fala}")
+
+                historico += f"O utilizador disse: {mensagem}\n"
+                historico += f"O chatbot pediu clarificação: {fala}\n"
+
+                linhas = historico.strip().split("\n")
+                historico = "\n".join(linhas[-10:]) + "\n"
+
+                # Mantém o mesmo campo pendente, porque ainda não foi respondido corretamente.
+                ultimo_campo_perguntado = [campo_pendente]
+
+                if DEBUG:
+                    print("\n[DEBUG RESPOSTA AMBÍGUA]")
+                    print(f"Campo pendente: {campo_pendente}")
+                    print(f"Resposta recebida: {mensagem}")
+                    print("[/DEBUG RESPOSTA AMBÍGUA]\n")
+
+                continue
+
+
+                # =====================================================
+        # 0.1 Responder a pedidos de esclarecimento
+        # =====================================================
+        # Se o utilizador perguntar "o que é X?" enquanto existe
+        # um campo pendente, o sistema explica o conceito e repete
+        # a pergunta original. O estado clínico não é atualizado.
+        if pergunta_pura and ultimo_campo_perguntado:
+            campo_pendente = ultimo_campo_perguntado[0]
+
+            if utilizador_pediu_esclarecimento(mensagem):
+                fala = explicacao_campo_clinico(campo_pendente, idioma)
+
+                print(f"\nSNS24-Bot: {fala}")
+
+                historico += f"O utilizador pediu esclarecimento: {mensagem}\n"
+                historico += f"O chatbot esclareceu: {fala}\n"
+
+                linhas = historico.strip().split("\n")
+                historico = "\n".join(linhas[-10:]) + "\n"
+
+                # Mantém o mesmo campo pendente.
+                ultimo_campo_perguntado = [campo_pendente]
+
+                if DEBUG:
+                    print("\n[DEBUG ESCLARECIMENTO]")
+                    print(f"Campo pendente: {campo_pendente}")
+                    print(f"Pergunta do utilizador: {mensagem}")
+                    print("[/DEBUG ESCLARECIMENTO]\n")
+
+                continue
+        # =====================================================
+        # 1. O LLM interpreta a mensagem do utilizador
+        # =====================================================
         decisao = chamar_llm_conversacional(
             vectorstore=vectorstore,
             estado=estado,
@@ -1468,6 +1949,9 @@ def main():
             ultimo_campo_perguntado=ultimo_campo_perguntado
         )
 
+        # =====================================================
+        # 2. Se for resposta clínica, corrigir e atualizar estado
+        # =====================================================
         if not pergunta_pura:
             decisao = corrigir_decisao_com_mensagem(mensagem, decisao)
 
@@ -1476,6 +1960,21 @@ def main():
                 decisao=decisao,
                 ultimo_campo_perguntado=ultimo_campo_perguntado
             )
+
+                # Correção determinística com base no campo que estava a ser perguntado.
+        # Isto evita erros do LLM em respostas como:
+        # "a dor no peito é moderada" -> dor_toracica = moderada
+        # "limita-me um pouco" -> limitacao_respiratoria = alguma
+        if ultimo_campo_perguntado:
+            campo_pendente = ultimo_campo_perguntado[0]
+            correcao_contextual = interpretar_resposta_por_campo_pendente(
+                mensagem,
+                campo_pendente
+            )
+
+            if correcao_contextual:
+                decisao.setdefault("estado_atualizado", {})
+                decisao["estado_atualizado"].update(correcao_contextual)
 
         if DEBUG:
             print("\n[DEBUG DECISAO LLM]")
@@ -1488,28 +1987,59 @@ def main():
                 estado_atualizado=decisao.get("estado_atualizado", {})
             )
 
+        # =====================================================
+        # 3. Verificar campos obrigatórios em falta
+        # =====================================================
         campos_falta = campos_obrigatorios_em_falta(estado)
 
-        if campos_falta:
-            decisao["terminar"] = False
+        if DEBUG:
+            print("\n[DEBUG CAMPOS EM FALTA]")
+            print(campos_falta)
+            print("[/DEBUG CAMPOS EM FALTA]\n")
 
-            if DEBUG:
-                print("\n[DEBUG CAMPOS EM FALTA]")
-                print(campos_falta)
-                print("[/DEBUG CAMPOS EM FALTA]\n")
+        # =====================================================
+        # 4. CONTROLADOR DETERMINÍSTICO DA CONVERSA
+        # =====================================================
+        # O LLM apenas interpreta a resposta.
+        # A próxima pergunta é escolhida pelo Python, com base
+        # nos campos que realmente faltam preencher.
+        # Isto evita perguntas repetidas e torna a conversa mais estável.
+        # =====================================================
 
         if not pergunta_pura:
-            decisao = reparar_fala_se_nao_avanca(
-                decisao=decisao,
-                estado=estado,
-                campos_falta=campos_falta,
-                idioma=idioma
-            )
+            if campos_falta:
+                proximo_campo = escolher_proximo_campo_para_perguntar(
+                    estado,
+                    campos_falta
+                )
+
+                pergunta = pergunta_direcionada_para_campo(
+                    proximo_campo,
+                    estado,
+                    idioma
+                )
+
+                decisao["fala"] = pergunta
+                decisao["campos_perguntados"] = [proximo_campo]
+                decisao["terminar"] = False
+
+            else:
+                decisao["fala"] = (
+                    "Obrigado. Já recolhi a informação clínica necessária. "
+                    "Vou agora encaminhar estes dados para o motor de decisão em Prolog."
+                )
+                decisao["campos_perguntados"] = []
+                decisao["terminar"] = True
+
+        # Se o utilizador fez uma pergunta pura, mantemos a resposta do LLM
+        # e não avançamos a triagem de forma forçada.
+        else:
+            decisao["terminar"] = False
 
         if DEBUG:
-            print("\n[DEBUG DECISAO APÓS REPARAÇÃO]")
+            print("\n[DEBUG DECISAO FINAL CONTROLADA]")
             print(json.dumps(decisao, ensure_ascii=False, indent=2))
-            print("[/DEBUG DECISAO APÓS REPARAÇÃO]\n")
+            print("[/DEBUG DECISAO FINAL CONTROLADA]\n")
 
         fala = decisao.get("fala", "")
         ultimo_campo_perguntado = decisao.get("campos_perguntados", [])
@@ -1528,9 +2058,10 @@ def main():
             print("[/DEBUG ESTADO]\n")
 
         if decisao.get("terminar") is True:
-            print("\n[DEBUG]")
-            print("O LLM indicou que já existe informação suficiente para chamar o Prolog.")
-            print("[/DEBUG]\n")
+            if DEBUG:
+                print("\n[DEBUG]")
+                print("Informação clínica suficiente para chamar o Prolog.")
+                print("[/DEBUG]\n")
             break
 
 
