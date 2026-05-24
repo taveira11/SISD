@@ -24,7 +24,7 @@ CHROMA_DIR = BASE_DIR / "chroma_sns24_rag"
 PROLOG_DIR = BASE_DIR.parent / "prolog"
 PROLOG_API = PROLOG_DIR / "api.pl"
 
-DEBUG = True
+DEBUG = False
 
 # =========================================================
 # OLLAMA
@@ -1594,79 +1594,146 @@ def pergunta_clarificacao_para_campo(campo, idioma):
 def interpretar_resposta_por_campo_pendente(mensagem, campo):
     """
     Interpreta respostas do utilizador com base no campo que estava pendente.
-    Esta função dá prioridade ao contexto da pergunta, evitando erros do LLM.
+    Esta função só deve devolver valores clínicos quando a resposta é realmente clara.
+
+    Importante:
+    - pedidos de esclarecimento como "não percebi", "explica melhor", "o que significa?"
+      nunca devem ser interpretados como resposta clínica negativa;
+    - respostas vagas como "às vezes", "um bocado", "não sei bem" também não devem
+      preencher automaticamente o estado.
     """
-
-    texto = normalizar_texto(mensagem)
-
-        # Em alguns campos, certas expressões aparentemente vagas
-    # são clinicamente suficientes para preencher o valor.
-    if campo == "limitacao_respiratoria":
-        if any(x in texto for x in ["um pouco", "limita-me", "limita me", "fico cansado", "tenho de abrandar", "alguma"]):
-            return False
-
-    if campo == "dor_toracica":
-        if any(x in texto for x in ["moderada", "ligeira", "leve", "forte", "incomoda", "insuportavel", "insuportável"]):
-            return False
-
-    if campo == "dificuldade_respiratoria":
-        if any(x in texto for x in ["ligeira", "leve", "moderada", "grave"]):
-            return False
 
     if not campo:
         return {}
 
-    # -----------------------------
-    # Dificuldade respiratória
-    # -----------------------------
+    texto = normalizar_texto(mensagem)
+
+    # ---------------------------------------------------------
+    # 0. Bloqueio absoluto para pedidos de esclarecimento
+    # ---------------------------------------------------------
+    padroes_esclarecimento = [
+        "nao percebi",
+        "não percebi",
+        "nao entendi",
+        "não entendi",
+        "explica",
+        "explica melhor",
+        "podes explicar",
+        "pode explicar",
+        "o que e",
+        "o que é",
+        "o que significa",
+        "que significa",
+        "quer dizer",
+        "o que quer dizer",
+        "nao sei o que e",
+        "não sei o que é",
+        "nao sei o que significa",
+        "não sei o que significa"
+    ]
+
+    if any(p in texto for p in padroes_esclarecimento):
+        return {}
+
+    # ---------------------------------------------------------
+    # 1. Bloqueio para respostas demasiado vagas
+    # ---------------------------------------------------------
+    respostas_vagas = [
+        "as vezes",
+        "às vezes",
+        "depende",
+        "nao sei",
+        "não sei",
+        "nao sei bem",
+        "não sei bem",
+        "talvez",
+        "mais ou menos",
+        "um bocado",
+        "um pouco",
+        "acho que sim",
+        "acho que nao",
+        "acho que não",
+        "nao tenho a certeza",
+        "não tenho a certeza"
+    ]
+
+    # Algumas expressões vagas só podem ser aceites em campos onde fazem sentido.
+    if any(x in texto for x in respostas_vagas):
+        if campo == "limitacao_respiratoria":
+            if any(x in texto for x in ["um pouco", "um bocado", "mais ou menos"]):
+                return {"limitacao_respiratoria": "alguma"}
+
+        if campo == "dificuldade_respiratoria":
+            # "um pouco" pode significar ligeira, mas só se a frase estiver claramente
+            # a falar de falta de ar.
+            if any(x in texto for x in ["falta de ar", "respirar", "respiração", "respiracao"]):
+                if any(x in texto for x in ["um pouco", "um bocado"]):
+                    return {"dificuldade_respiratoria": "ligeira"}
+
+        # Caso contrário, não assume nada.
+        return {}
+
+    # ---------------------------------------------------------
+    # 2. Dificuldade respiratória
+    # ---------------------------------------------------------
     if campo == "dificuldade_respiratoria":
-        if any(x in texto for x in ["grave", "muito forte", "muita falta de ar", "nao consigo respirar"]):
+        if any(x in texto for x in ["grave", "muito forte", "muita falta de ar", "nao consigo respirar", "não consigo respirar"]):
             return {"dificuldade_respiratoria": "grave"}
-        if any(x in texto for x in ["moderada", "media", "razoavel"]):
+
+        if any(x in texto for x in ["moderada", "media", "média", "razoavel", "razoável"]):
             return {"dificuldade_respiratoria": "moderada"}
-        if any(x in texto for x in ["ligeira", "leve", "pouca", "um pouco"]):
+
+        if any(x in texto for x in ["ligeira", "leve", "pouca falta de ar"]):
             return {"dificuldade_respiratoria": "ligeira"}
-        if any(x in texto for x in ["nao", "não", "sem falta de ar"]):
+
+        if any(x in texto for x in ["sem falta de ar", "nao sinto falta de ar", "não sinto falta de ar", "respiro bem"]):
             return {"dificuldade_respiratoria": "nenhuma"}
 
-    # -----------------------------
-    # Limitação respiratória
-    # -----------------------------
+    # ---------------------------------------------------------
+    # 3. Limitação respiratória
+    # ---------------------------------------------------------
     if campo == "limitacao_respiratoria":
-        if any(x in texto for x in ["significativa", "muito", "bastante", "nao consigo", "não consigo", "impede"]):
+        if any(x in texto for x in ["significativa", "muito", "bastante", "nao consigo", "não consigo", "impede", "tenho de parar"]):
             return {"limitacao_respiratoria": "significativa"}
-        if any(x in texto for x in ["alguma", "um pouco", "limita-me", "limita me", "fico cansado", "tenho de abrandar", "abrandar"]):
+
+        if any(x in texto for x in ["alguma", "limita-me", "limita me", "fico cansado", "tenho de abrandar", "abrandar"]):
             return {"limitacao_respiratoria": "alguma"}
-        if any(x in texto for x in ["nao limita", "não limita", "nenhuma", "consigo fazer tudo"]):
+
+        if any(x in texto for x in ["nao limita", "não limita", "nenhuma", "consigo fazer tudo", "nao me limita", "não me limita"]):
             return {"limitacao_respiratoria": "nenhuma"}
 
-    # -----------------------------
-    # Dor torácica
-    # -----------------------------
+    # ---------------------------------------------------------
+    # 4. Dor torácica
+    # ---------------------------------------------------------
     if campo == "dor_toracica":
-        if any(x in texto for x in ["forte", "insuportavel", "insuportável", "aperto forte", "dor intensa"]):
+        if any(x in texto for x in ["forte", "insuportavel", "insuportável", "aperto forte", "dor intensa", "muito forte"]):
             return {"dor_toracica": "forte"}
-        if any(x in texto for x in ["moderada", "incomoda", "incomoda", "não é insuportável", "nao e insuportavel"]):
+
+        if any(x in texto for x in ["moderada", "incomoda", "incomoda-me", "não é insuportável", "nao e insuportavel", "não é muito forte"]):
             return {"dor_toracica": "moderada"}
-        if any(x in texto for x in ["ligeira", "leve", "fraca"]):
-            return {"dor_toracica": "moderada"}
-        if any(x in texto for x in ["nao", "não", "sem dor", "nenhuma"]):
+
+        if any(x in texto for x in ["ligeira", "leve", "fraca", "pequena dor"]):
+            return {"dor_toracica": "ligeira"}
+
+        if any(x in texto for x in ["sem dor", "nenhuma dor", "nao tenho dor", "não tenho dor", "nao sinto dor", "não sinto dor"]):
             return {"dor_toracica": "nenhuma"}
 
-    # -----------------------------
-    # Febre
-    # -----------------------------
+    # ---------------------------------------------------------
+    # 5. Febre
+    # ---------------------------------------------------------
     if campo == "febre":
         if any(x in texto for x in ["39", "40", "alta", "muito alta"]):
             return {"febre": "alta"}
+
         if any(x in texto for x in ["37", "38", "moderada", "baixa"]):
             return {"febre": "moderada"}
-        if any(x in texto for x in ["nao", "não", "sem febre", "nenhuma"]):
+
+        if any(x in texto for x in ["sem febre", "nao tenho febre", "não tenho febre", "nenhuma febre"]):
             return {"febre": "nenhuma"}
 
-    # -----------------------------
-    # Campos sim/não
-    # -----------------------------
+    # ---------------------------------------------------------
+    # 6. Campos sim/não
+    # ---------------------------------------------------------
     campos_binarios = [
         "tosse",
         "pieira",
@@ -1679,9 +1746,33 @@ def interpretar_resposta_por_campo_pendente(mensagem, campo):
     ]
 
     if campo in campos_binarios:
-        if any(x in texto for x in ["sim", "tenho", "sinto", "estou com", "piorou", "piorei"]):
+        respostas_sim = [
+            "sim",
+            "tenho",
+            "sinto",
+            "estou com",
+            "tenho tido",
+            "costumo ter",
+            "piorou",
+            "piorei"
+        ]
+
+        respostas_nao = [
+            "nao",
+            "não",
+            "nunca",
+            "sem",
+            "nao tenho",
+            "não tenho",
+            "nao sinto",
+            "não sinto"
+        ]
+
+        # Evita que "não percebi" seja apanhado como "não".
+        if any(x in texto for x in respostas_sim):
             return {campo: "sim"}
-        if any(x in texto for x in ["nao", "não", "nunca", "sem", "nao tenho", "não tenho"]):
+
+        if any(x in texto for x in respostas_nao):
             return {campo: "nao"}
 
     return {}
@@ -1839,6 +1930,484 @@ def explicacao_campo_clinico(campo, idioma):
 # FLUXO PRINCIPAL
 # =========================================================
 
+
+def normalizar_lista_campos(campos):
+    """
+    Garante que o campo campos_perguntados vem sempre como lista limpa.
+    O LLM continua a decidir a pergunta, mas o Python valida a estrutura.
+    """
+    if campos is None:
+        return []
+    if isinstance(campos, str):
+        return [campos]
+    if isinstance(campos, list):
+        return [c for c in campos if isinstance(c, str) and c.strip()]
+    return []
+
+
+def decisao_llm_tem_pergunta_util(decisao, campos_falta):
+    """
+    Verifica se a resposta do LLM avançou realmente a recolha de informação.
+    Não escolhe a conversa por regra; apenas impede repetições ou campos já preenchidos.
+    """
+    campos = normalizar_lista_campos(decisao.get("campos_perguntados", []))
+    if not campos:
+        return False
+    return any(campo in campos_falta for campo in campos)
+
+def fala_menciona_campos_ja_preenchidos(fala, estado, campo_permitido=None):
+    """
+    Deteta se a fala do LLM está a voltar a perguntar por campos
+    que já têm valor confirmado no estado clínico.
+
+    Isto evita casos como:
+    - tosse já está "sim" e o LLM volta a perguntar por tosse;
+    - congestao_nasal já está "sim" e o LLM volta a perguntar por nariz entupido;
+    - dor_garganta já está preenchida e o LLM volta a pedir confirmação.
+    """
+
+    texto = normalizar_texto(fala)
+
+    palavras_por_campo = {
+        "tosse": [
+            "tosse",
+            "tossir"
+        ],
+        "pieira": [
+            "pieira",
+            "chiadeira",
+            "assobio ao respirar",
+            "som ao respirar"
+        ],
+        "dor_garganta": [
+            "dor de garganta",
+            "garganta",
+            "ardor na garganta"
+        ],
+        "congestao_nasal": [
+            "congestao nasal",
+            "nariz entupido",
+            "nariz tapado",
+            "desconforto nasal",
+            "obstrucao nasal"
+        ],
+        "febre": [
+            "febre",
+            "temperatura",
+            "graus"
+        ],
+        "dificuldade_respiratoria": [
+            "falta de ar",
+            "dificuldade em respirar",
+            "dificuldade respiratoria"
+        ],
+        "dor_toracica": [
+            "dor no peito",
+            "dor toracica",
+            "aperto no peito",
+            "pressao no peito"
+        ],
+        "limitacao_respiratoria": [
+            "limita",
+            "limitacao",
+            "atividades normais",
+            "andar",
+            "subir escadas"
+        ],
+        "agravamento": [
+            "piorar",
+            "piorou",
+            "agravou",
+            "agravamento"
+        ],
+        "duracao_prolongada": [
+            "mais de 3 dias",
+            "dura",
+            "duracao",
+            "ha quantos dias"
+        ],
+        "doenca_respiratoria_previa": [
+            "asma",
+            "bronquite",
+            "dpoc",
+            "doenca respiratoria",
+            "doenca pulmonar"
+        ],
+        "imunossupressao": [
+            "imunidade baixa",
+            "defesas baixas",
+            "imunossupressao",
+            "tratamento imunossupressor"
+        ]
+    }
+
+    for campo, palavras in palavras_por_campo.items():
+        if campo == campo_permitido:
+            continue
+
+        valor = estado.get(campo)
+
+        if valor not in [None, "", "desconhecida"]:
+            if any(palavra in texto for palavra in palavras):
+                return True
+
+    return False
+
+def aplicar_fallback_minimo_se_necessario(decisao, estado, campos_falta, idioma):
+    """
+    Fallback mínimo de segurança.
+
+    O LLM continua a interpretar a conversa e a produzir a fala.
+    O Python apenas valida se essa fala é útil, se não repete campos já respondidos
+    e se aponta para um campo que ainda falta preencher.
+
+    Se o LLM fizer uma pergunta misturada, por exemplo voltar a perguntar por tosse
+    quando tosse já está preenchida, a fala é substituída por uma pergunta limpa
+    sobre o próximo campo em falta.
+    """
+
+    campos_originais = normalizar_lista_campos(
+        decisao.get("campos_perguntados", [])
+    )
+
+    decisao["campos_perguntados"] = campos_originais
+
+    # Se já não faltam campos, preparar passagem para o Prolog.
+    if not campos_falta:
+        decisao["terminar"] = True
+        decisao["campos_perguntados"] = []
+
+        decisao["fala"] = (
+            "Obrigado. Já recolhi a informação clínica necessária. "
+            "Vou agora encaminhar estes dados para o motor de decisão em Prolog, "
+            "que será responsável por determinar o encaminhamento final."
+        )
+
+        return decisao
+
+    # Se ainda faltam campos, o chatbot não pode terminar.
+    decisao["terminar"] = False
+
+    # Manter apenas campos que ainda estão realmente em falta.
+    campos_validos = [
+        campo for campo in campos_originais
+        if campo in campos_falta
+    ]
+
+    # Caso ideal:
+    # o LLM perguntou exatamente um campo em falta
+    # e a fala não mistura campos já preenchidos.
+    if len(campos_originais) == 1 and len(campos_validos) == 1:
+        campo = campos_validos[0]
+
+        if not fala_menciona_campos_ja_preenchidos(
+            fala=decisao.get("fala", ""),
+            estado=estado,
+            campo_permitido=campo
+        ):
+            decisao["campos_perguntados"] = [campo]
+            return decisao
+
+    # Caso problemático:
+    # o LLM perguntou vários campos, perguntou campos já preenchidos,
+    # ou a fala mistura informação já respondida.
+    if campos_validos:
+        campo = escolher_proximo_campo_para_perguntar(
+            estado=estado,
+            campos_falta=campos_validos
+        )
+    else:
+        campo = escolher_proximo_campo_para_perguntar(
+            estado=estado,
+            campos_falta=campos_falta
+        )
+
+    pergunta = pergunta_direcionada_para_campo(
+        campo=campo,
+        estado=estado,
+        idioma=idioma
+    )
+
+    if pergunta:
+        decisao["fala"] = pergunta
+        decisao["campos_perguntados"] = [campo]
+
+    return decisao
+
+    # Só aqui entra o controlo determinístico: evitar bloqueio da conversa.
+    campo = escolher_proximo_campo_para_perguntar(estado, campos_falta)
+    pergunta = pergunta_direcionada_para_campo(campo, estado, idioma)
+
+    if pergunta:
+        decisao["fala"] = pergunta
+        decisao["campos_perguntados"] = [campo]
+
+    return decisao
+
+def finalizar_se_informacao_suficiente(decisao, campos_falta, idioma):
+    """
+    Garante que, quando já não existem campos clínicos obrigatórios em falta,
+    o chatbot deixa de fazer perguntas e prepara a passagem para o motor Prolog.
+    """
+
+    if campos_falta:
+        return decisao
+
+    if idioma == "en":
+        decisao["fala"] = (
+            "Thank you. I have now collected the necessary clinical information. "
+            "I will now send these data to the Prolog decision engine, which will determine "
+            "the final triage recommendation."
+        )
+    else:
+        decisao["fala"] = (
+            "Obrigado. Já recolhi a informação clínica necessária. "
+            "Vou agora encaminhar estes dados para o motor de decisão em Prolog, "
+            "que será responsável por determinar o encaminhamento final."
+        )
+
+    decisao["campos_perguntados"] = []
+    decisao["terminar"] = True
+
+    return decisao
+
+def mensagem_e_pedido_de_esclarecimento(mensagem):
+    """
+    Deteta mensagens em que o utilizador está a pedir explicação,
+    e não a responder clinicamente à pergunta.
+
+    Exemplo:
+    - "como sei se a febre é moderada ou alta?"
+    - "o que é febre moderada?"
+    - "não percebi"
+    - "explica melhor"
+    - "o que quer dizer imunossupressão?"
+    """
+
+    texto = normalizar_texto(mensagem)
+
+    padroes = [
+        "nao percebi",
+        "não percebi",
+        "nao entendi",
+        "não entendi",
+        "explica",
+        "explica melhor",
+        "podes explicar",
+        "pode explicar",
+        "consegues explicar",
+        "consegue explicar",
+        "o que e",
+        "o que é",
+        "o que significa",
+        "que significa",
+        "quer dizer",
+        "o que quer dizer",
+        "como assim",
+        "como sei",
+        "como posso saber",
+        "como é que sei",
+        "qual e a diferenca",
+        "qual é a diferença",
+        "diferença entre",
+        "nao sei responder",
+        "não sei responder"
+    ]
+
+    return any(p in texto for p in padroes)
+def utilizador_pediu_explicacao_clinica(mensagem):
+    """
+    Deteta perguntas em que o utilizador está a pedir explicação
+    sobre um conceito clínico, e não a responder ao campo pendente.
+
+    Exemplos:
+    - "como sei se a febre é alta?"
+    - "o que quer dizer imunossupressão?"
+    - "não percebi, explica melhor"
+    - "qual é a diferença entre moderada e alta?"
+    - "o que é pieira?"
+    """
+
+    texto = normalizar_texto(mensagem)
+
+    expressoes_explicacao = [
+        "como sei",
+        "como posso saber",
+        "como e que sei",
+        "como é que sei",
+        "o que e",
+        "o que é",
+        "o que significa",
+        "o que quer dizer",
+        "quer dizer",
+        "explica",
+        "explique",
+        "explica melhor",
+        "nao percebi",
+        "não percebi",
+        "nao entendi",
+        "não entendi",
+        "podes explicar",
+        "pode explicar",
+        "qual e a diferenca",
+        "qual é a diferença",
+        "diferenca entre",
+        "diferença entre",
+        "quando e considerado",
+        "quando é considerado"
+    ]
+
+    termos_clinicos = [
+        "febre",
+        "temperatura",
+        "moderada",
+        "alta",
+        "tosse",
+        "pieira",
+        "falta de ar",
+        "dificuldade respiratoria",
+        "dificuldade respiratória",
+        "dor toracica",
+        "dor torácica",
+        "dor no peito",
+        "limitacao respiratoria",
+        "limitação respiratória",
+        "imunossupressao",
+        "imunossupressão",
+        "defesas baixas",
+        "imunidade baixa",
+        "doenca respiratoria",
+        "doença respiratória",
+        "congestao nasal",
+        "congestão nasal",
+        "agravamento",
+        "duracao prolongada",
+        "duração prolongada"
+    ]
+
+    tem_expressao_explicacao = any(expr in texto for expr in expressoes_explicacao)
+    tem_termo_clinico = any(termo in texto for termo in termos_clinicos)
+
+    return tem_expressao_explicacao and tem_termo_clinico
+import subprocess
+import re
+
+
+def valor_para_prolog(valor, padrao):
+    """
+    Converte valores do estado Python para átomos Prolog.
+    Se o valor estiver vazio, desconhecido ou indefinido, usa um valor padrão seguro.
+    """
+    if valor is None:
+        return padrao
+
+    valor = str(valor).strip().lower()
+
+    valores_invalidos = ["", "null", "none", "desconhecido", "desconhecida", "não sei", "nao sei", "talvez"]
+
+    if valor in valores_invalidos:
+        return padrao
+
+    return valor
+
+
+def limpar_texto_prolog(texto):
+    """
+    Limpa listas/textos vindos do Prolog para ficarem mais apresentáveis.
+    """
+    if texto is None:
+        return ""
+
+    texto = texto.strip()
+    texto = texto.replace("[", "").replace("]", "")
+    texto = texto.replace("'", "")
+    texto = texto.replace("_", " ")
+
+    return texto
+
+
+def chamar_prolog_triagem(estado):
+    """
+    Envia o estado clínico final para o ficheiro api.pl.
+    O Prolog é responsável por decidir o encaminhamento final.
+    O chatbot/LLM apenas recolhe dados e explica o resultado.
+    """
+
+    idade = re.sub(r"\D", "", str(estado.get("idade", "")))
+    if idade == "":
+        idade = "0"
+
+    valores = {
+        "idade": idade,
+        "tosse": valor_para_prolog(estado.get("tosse"), "nao"),
+        "pieira": valor_para_prolog(estado.get("pieira"), "nao"),
+        "dor_garganta": valor_para_prolog(estado.get("dor_garganta"), "nao"),
+        "congestao_nasal": valor_para_prolog(estado.get("congestao_nasal"), "nao"),
+        "agravamento": valor_para_prolog(estado.get("agravamento"), "nao"),
+        "duracao_prolongada": valor_para_prolog(estado.get("duracao_prolongada"), "nao"),
+        "doenca_respiratoria_previa": valor_para_prolog(estado.get("doenca_respiratoria_previa"), "nao"),
+        "imunossupressao": valor_para_prolog(estado.get("imunossupressao"), "nao"),
+        "febre": valor_para_prolog(estado.get("febre"), "nenhuma"),
+        "dificuldade_respiratoria": valor_para_prolog(estado.get("dificuldade_respiratoria"), "nenhuma"),
+        "dor_toracica": valor_para_prolog(estado.get("dor_toracica"), "nenhuma"),
+        "limitacao_respiratoria": valor_para_prolog(estado.get("limitacao_respiratoria"), "nenhuma"),
+    }
+
+    comando_prolog = (
+        "executar_api("
+        f"{valores['idade']},"
+        f"{valores['tosse']},"
+        f"{valores['pieira']},"
+        f"{valores['dor_garganta']},"
+        f"{valores['congestao_nasal']},"
+        f"{valores['agravamento']},"
+        f"{valores['duracao_prolongada']},"
+        f"{valores['doenca_respiratoria_previa']},"
+        f"{valores['imunossupressao']},"
+        f"{valores['febre']},"
+        f"{valores['dificuldade_respiratoria']},"
+        f"{valores['dor_toracica']},"
+        f"{valores['limitacao_respiratoria']}"
+        "), halt."
+    )
+
+    resultado = subprocess.run(
+        ["swipl", "-q", "-s", "../prolog/api.pl", "-g", comando_prolog],
+        capture_output=True,
+        text=True
+    )
+
+    if resultado.returncode != 0:
+        return {
+            "erro": True,
+            "mensagem": resultado.stderr
+        }
+
+    linhas = resultado.stdout.strip().splitlines()
+
+    saida = {
+        "encaminhamento": "",
+        "score": "",
+        "faixa": "",
+        "motivos": "",
+        "outros": ""
+    }
+
+    for linha in linhas:
+        if linha.startswith("RESULTADO="):
+            saida["encaminhamento"] = linha.replace("RESULTADO=", "").strip()
+        elif linha.startswith("SCORE="):
+            saida["score"] = linha.replace("SCORE=", "").strip()
+        elif linha.startswith("FAIXA="):
+            saida["faixa"] = linha.replace("FAIXA=", "").strip()
+        elif linha.startswith("MOTIVOS="):
+            saida["motivos"] = limpar_texto_prolog(linha.replace("MOTIVOS=", "").strip())
+        elif linha.startswith("OUTROS="):
+            saida["outros"] = limpar_texto_prolog(linha.replace("OUTROS=", "").strip())
+
+    saida["erro"] = False
+    return saida
+
 def main():
     vectorstore = carregar_ou_criar_rag()
     config = escolher_idioma()
@@ -1867,79 +2436,71 @@ def main():
             print(f"\nSNS24-Bot: {config['mensagem_saida']}")
             break
 
+        # O utilizador pode fazer uma pergunta clínica sem estar a responder ao campo pendente.
+        campo_pendente = ultimo_campo_perguntado[0] if ultimo_campo_perguntado else None
+
+        pediu_esclarecimento = (
+            campo_pendente is not None
+            and utilizador_pediu_esclarecimento(mensagem)
+    )
+
+        if pediu_esclarecimento:
+            fala = explicacao_campo_clinico(campo_pendente, idioma)
+
+            print(f"\nSNS24-Bot: {fala}")
+
+            historico += f"O utilizador pediu esclarecimento: {mensagem}\n"
+            historico += f"O chatbot explicou o campo {campo_pendente}: {fala}\n"
+
+            linhas = historico.strip().split("\n")
+            historico = "\n".join(linhas[-10:]) + "\n"
+
+            if DEBUG:
+                print("\n[DEBUG ESCLARECIMENTO]")
+                print(f"Campo pendente: {campo_pendente}")
+                print(f"Mensagem do utilizador: {mensagem}")
+                print("[/DEBUG ESCLARECIMENTO]\n")
+
+            continue
+
         fez_pergunta = paciente_fez_pergunta(mensagem)
+
+        pedido_explicacao_clinica = utilizador_pediu_explicacao_clinica(mensagem)
+
         respondeu_campo_pendente = mensagem_responde_ao_campo_pendente(
             mensagem,
             ultimo_campo_perguntado
         )
 
-        pergunta_pura = fez_pergunta and not respondeu_campo_pendente
+            # Se o utilizador está a pedir explicação, isso tem prioridade.
+        # A mensagem não deve ser tratada como resposta clínica.
+        pergunta_pura = pedido_explicacao_clinica or (
+            fez_pergunta and not respondeu_campo_pendente
+        )
 
-                # =====================================================
-        # 0. Detetar respostas vagas ao campo pendente
-        # =====================================================
-        # Se o utilizador responder de forma vaga a uma pergunta clínica,
-        # o sistema não atualiza o estado nem chama já o LLM.
-        # Pede primeiro uma clarificação objetiva.
-        if not pergunta_pura and ultimo_campo_perguntado:
-            campo_pendente = ultimo_campo_perguntado[0]
+        # Se a resposta ao campo pendente for vaga, não se inventa valor clínico.
+        # O chatbot pede esclarecimento e só depois continua.
+        campo_pendente = ultimo_campo_perguntado[0] if ultimo_campo_perguntado else None
+        if (
+            campo_pendente
+            and not pergunta_pura
+            and resposta_ambigua_para_campo(mensagem, campo_pendente)
+        ):
+            fala = pergunta_clarificacao_para_campo(campo_pendente, idioma)
+            print(f"\nSNS24-Bot: {fala}")
 
-            if resposta_ambigua_para_campo(mensagem, campo_pendente):
-                fala = pergunta_clarificacao_para_campo(campo_pendente, idioma)
+            historico += f"O utilizador disse: {mensagem}\n"
+            historico += f"O chatbot pediu esclarecimento: {fala}\n"
 
-                print(f"\nSNS24-Bot: {fala}")
+            if DEBUG:
+                print("\n[DEBUG ESCLARECIMENTO]")
+                print(f"Campo pendente: {campo_pendente}")
+                print(f"Pergunta do utilizador: {mensagem}")
+                print("[/DEBUG ESCLARECIMENTO]\n")
 
-                historico += f"O utilizador disse: {mensagem}\n"
-                historico += f"O chatbot pediu clarificação: {fala}\n"
+            continue
 
-                linhas = historico.strip().split("\n")
-                historico = "\n".join(linhas[-10:]) + "\n"
-
-                # Mantém o mesmo campo pendente, porque ainda não foi respondido corretamente.
-                ultimo_campo_perguntado = [campo_pendente]
-
-                if DEBUG:
-                    print("\n[DEBUG RESPOSTA AMBÍGUA]")
-                    print(f"Campo pendente: {campo_pendente}")
-                    print(f"Resposta recebida: {mensagem}")
-                    print("[/DEBUG RESPOSTA AMBÍGUA]\n")
-
-                continue
-
-
-                # =====================================================
-        # 0.1 Responder a pedidos de esclarecimento
-        # =====================================================
-        # Se o utilizador perguntar "o que é X?" enquanto existe
-        # um campo pendente, o sistema explica o conceito e repete
-        # a pergunta original. O estado clínico não é atualizado.
-        if pergunta_pura and ultimo_campo_perguntado:
-            campo_pendente = ultimo_campo_perguntado[0]
-
-            if utilizador_pediu_esclarecimento(mensagem):
-                fala = explicacao_campo_clinico(campo_pendente, idioma)
-
-                print(f"\nSNS24-Bot: {fala}")
-
-                historico += f"O utilizador pediu esclarecimento: {mensagem}\n"
-                historico += f"O chatbot esclareceu: {fala}\n"
-
-                linhas = historico.strip().split("\n")
-                historico = "\n".join(linhas[-10:]) + "\n"
-
-                # Mantém o mesmo campo pendente.
-                ultimo_campo_perguntado = [campo_pendente]
-
-                if DEBUG:
-                    print("\n[DEBUG ESCLARECIMENTO]")
-                    print(f"Campo pendente: {campo_pendente}")
-                    print(f"Pergunta do utilizador: {mensagem}")
-                    print("[/DEBUG ESCLARECIMENTO]\n")
-
-                continue
-        # =====================================================
-        # 1. O LLM interpreta a mensagem do utilizador
-        # =====================================================
+        # 1. O LLM interpreta a mensagem com apoio do RAG.
         decisao = chamar_llm_conversacional(
             vectorstore=vectorstore,
             estado=estado,
@@ -1950,46 +2511,71 @@ def main():
         )
 
         # =====================================================
-        # 2. Se for resposta clínica, corrigir e atualizar estado
-        # =====================================================
-        if not pergunta_pura:
-            decisao = corrigir_decisao_com_mensagem(mensagem, decisao)
+# Se for uma pergunta de esclarecimento, o LLM responde,
+# mas o estado clínico não é alterado e a conversa não avança.
+# =====================================================
+        if pergunta_pura:
+            fala = decisao.get("fala", "").strip()
 
-            decisao = corrigir_por_contexto_da_pergunta(
-                mensagem=mensagem,
-                decisao=decisao,
-                ultimo_campo_perguntado=ultimo_campo_perguntado
-            )
+            if not fala:
+                if idioma == "en":
+                    fala = "I can clarify that. Please tell me what part you would like me to explain."
+                else:
+                    fala = "Posso esclarecer melhor. Diga-me qual é a parte que pretende que explique."
 
-                # Correção determinística com base no campo que estava a ser perguntado.
-        # Isto evita erros do LLM em respostas como:
-        # "a dor no peito é moderada" -> dor_toracica = moderada
-        # "limita-me um pouco" -> limitacao_respiratoria = alguma
-        if ultimo_campo_perguntado:
-            campo_pendente = ultimo_campo_perguntado[0]
-            correcao_contextual = interpretar_resposta_por_campo_pendente(
-                mensagem,
-                campo_pendente
-            )
+            # Depois de explicar, retoma a pergunta clínica que estava pendente.
+            if ultimo_campo_perguntado:
+                campo_retomar = ultimo_campo_perguntado[0]
+                pergunta_retomar = pergunta_direcionada_para_campo(
+                    campo=campo_retomar,
+                    estado=estado,
+                    idioma=idioma
+                )
 
-            if correcao_contextual:
-                decisao.setdefault("estado_atualizado", {})
-                decisao["estado_atualizado"].update(correcao_contextual)
+                if pergunta_retomar:
+                    if idioma == "en":
+                        fala = f"{fala}\n\nReturning to the previous question: {pergunta_retomar}"
+                    else:
+                        fala = f"{fala}\n\nVoltando à pergunta anterior: {pergunta_retomar}"
+
+            print(f"\nSNS24-Bot: {fala}")
+
+            historico += f"O utilizador perguntou: {mensagem}\n"
+            historico += f"O chatbot esclareceu: {fala}\n"
+
+            linhas = historico.strip().split("\n")
+            historico = "\n".join(linhas[-10:]) + "\n"
+
+            if DEBUG:
+                print("\n[DEBUG ESTADO — SEM ALTERAÇÃO POR SER PEDIDO DE ESCLARECIMENTO]")
+                print(resumo_estado(estado))
+                print("[/DEBUG ESTADO]\n")
+
+            continue
 
         if DEBUG:
             print("\n[DEBUG DECISAO LLM]")
             print(json.dumps(decisao.get("raw", decisao), ensure_ascii=False, indent=2))
             print("[/DEBUG DECISAO LLM]\n")
 
+        # 2. Se for uma pergunta pura do utilizador, não se altera o estado clínico.
+        # O LLM deve responder à dúvida e depois retomar a recolha de dados.
         if not pergunta_pura:
+            decisao = corrigir_decisao_com_mensagem(mensagem, decisao)
+
+            decisao = corrigir_por_contexto_da_pergunta(
+               mensagem=mensagem,
+               decisao=decisao,
+               ultimo_campo_perguntado=ultimo_campo_perguntado
+            )
+
             estado = atualizar_estado(
                 estado=estado,
                 estado_atualizado=decisao.get("estado_atualizado", {})
             )
 
-        # =====================================================
-        # 3. Verificar campos obrigatórios em falta
-        # =====================================================
+        
+
         campos_falta = campos_obrigatorios_em_falta(estado)
 
         if DEBUG:
@@ -1997,44 +2583,21 @@ def main():
             print(campos_falta)
             print("[/DEBUG CAMPOS EM FALTA]\n")
 
-        # =====================================================
-        # 4. CONTROLADOR DETERMINÍSTICO DA CONVERSA
-        # =====================================================
-        # O LLM apenas interpreta a resposta.
-        # A próxima pergunta é escolhida pelo Python, com base
-        # nos campos que realmente faltam preencher.
-        # Isto evita perguntas repetidas e torna a conversa mais estável.
-        # =====================================================
+        # 3. Se já existe informação suficiente, não deixar o LLM fazer mais perguntas.
+        decisao = finalizar_se_informacao_suficiente(
+         decisao=decisao,
+         campos_falta=campos_falta,
+         idioma=idioma
+        )
 
-        if not pergunta_pura:
-            if campos_falta:
-                proximo_campo = escolher_proximo_campo_para_perguntar(
-                    estado,
-                    campos_falta
-                )
-
-                pergunta = pergunta_direcionada_para_campo(
-                    proximo_campo,
-                    estado,
-                    idioma
-                )
-
-                decisao["fala"] = pergunta
-                decisao["campos_perguntados"] = [proximo_campo]
-                decisao["terminar"] = False
-
-            else:
-                decisao["fala"] = (
-                    "Obrigado. Já recolhi a informação clínica necessária. "
-                    "Vou agora encaminhar estes dados para o motor de decisão em Prolog."
-                )
-                decisao["campos_perguntados"] = []
-                decisao["terminar"] = True
-
-        # Se o utilizador fez uma pergunta pura, mantemos a resposta do LLM
-        # e não avançamos a triagem de forma forçada.
-        else:
-            decisao["terminar"] = False
+        # 4. Fallback mínimo: só entra se ainda faltarem campos e o LLM não avançar a conversa.
+        if campos_falta:
+         decisao = aplicar_fallback_minimo_se_necessario(
+          decisao=decisao,
+          estado=estado,
+          campos_falta=campos_falta,
+          idioma=idioma
+     )
 
         if DEBUG:
             print("\n[DEBUG DECISAO FINAL CONTROLADA]")
@@ -2042,7 +2605,9 @@ def main():
             print("[/DEBUG DECISAO FINAL CONTROLADA]\n")
 
         fala = decisao.get("fala", "")
-        ultimo_campo_perguntado = decisao.get("campos_perguntados", [])
+        ultimo_campo_perguntado = normalizar_lista_campos(
+            decisao.get("campos_perguntados", [])
+        )
 
         print(f"\nSNS24-Bot: {fala}")
 
@@ -2058,10 +2623,34 @@ def main():
             print("[/DEBUG ESTADO]\n")
 
         if decisao.get("terminar") is True:
-            if DEBUG:
-                print("\n[DEBUG]")
-                print("Informação clínica suficiente para chamar o Prolog.")
-                print("[/DEBUG]\n")
+            resultado_prolog = chamar_prolog_triagem(estado)
+
+            if resultado_prolog.get("erro"):
+                print("\nSNS24-Bot: Ocorreu um problema técnico ao consultar o motor de decisão em Prolog.")
+                print(resultado_prolog.get("mensagem"))
+                break
+
+            encaminhamento = resultado_prolog.get("encaminhamento", "")
+            score = resultado_prolog.get("score", "")
+            faixa = resultado_prolog.get("faixa", "")
+            motivos = resultado_prolog.get("motivos", "")
+            outros = resultado_prolog.get("outros", "")
+
+            print("\nSNS24-Bot: Já recolhi a informação clínica necessária e encaminhei os dados para o motor de decisão em Prolog.")
+            print("\n============================================================")
+            print("RESULTADO FINAL DA TRIAGEM")
+            print("============================================================")
+            print(f"Encaminhamento recomendado: {encaminhamento}")
+            print(f"Índice de gravidade: {score}%")
+            print(f"Faixa de risco: {faixa}")
+
+            if motivos:
+                print(f"Motivos principais: {motivos}")
+
+            if outros and outros != "":
+                print(f"Outros encaminhamentos considerados: {outros}")
+
+            print("\nNota: este resultado é uma simulação académica e não substitui avaliação clínica real.")
             break
 
 
